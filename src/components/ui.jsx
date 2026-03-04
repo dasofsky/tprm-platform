@@ -25,6 +25,7 @@ export function Btn({ children, onClick, variant = 'primary', disabled = false, 
     primary: { background: '#0f172a', color: '#fff' },
     accent:  { background: '#6366f1', color: '#fff' },
     ghost:   { background: 'transparent', color: t.text2, border: `1px solid ${t.border}` },
+    danger:  { background: '#dc2626', color: '#fff' },
     danger:  { background: t.dangerBg, color: t.dangerText, border: `1px solid ${t.dangerText}44` },
   }
   return (

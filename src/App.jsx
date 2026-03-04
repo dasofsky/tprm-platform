@@ -22,7 +22,7 @@ function LoadingScreen() {
 
 function AppShell() {
   const t = useTheme()
-  const { vendors, loading: vendorsLoading, error: vendorsError, addVendor, editVendor } = useVendors()
+  const { vendors, loading: vendorsLoading, error: vendorsError, addVendor, editVendor, removeVendor } = useVendors()
   const { authUser, loading: authLoading, signOut } = useAuth()
 
   const [tab,      setTab]      = useState('overview')
@@ -35,6 +35,11 @@ function AppShell() {
     const saved = await editVendor(updated)
     setSelected(saved)
   }, [editVendor])
+
+  const handleDeleteVendor = async (id) => {
+    await removeVendor(id)
+    setSelected(null)
+  }
 
   const handleTabChange = (newTab) => {
     setTab(newTab)
@@ -58,7 +63,7 @@ function AppShell() {
 
       <div style={{ maxWidth: 1160, margin: '0 auto', padding: '26px 22px 56px' }}>
         {currentVendor ? (
-          <VendorDetail vendor={currentVendor} onBack={() => setSelected(null)} onUpdate={handleUpdateVendor} />
+          <VendorDetail vendor={currentVendor} onBack={() => setSelected(null)} onUpdate={handleUpdateVendor} onDelete={handleDeleteVendor} />
         ) : (
           <>
             {tab === 'overview'   && <OverviewTab   vendors={vendors} onSelect={setSelected} onAdd={() => setShowAdd(true)} />}

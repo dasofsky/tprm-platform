@@ -9,13 +9,14 @@ import { exportVendorPDF } from '../pdfExport'
 import { riskColor, riskLabel } from '../utils'
 import { RA_DIMS, DD_ITEMS } from '../data'
 
-export function VendorDetail({ vendor, onBack, onUpdate }) {
+export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
   const t = useTheme()
-  const { canWrite } = useAuth()
+  const { canWrite, isAdmin } = useAuth()
   const [tab, setTab] = useState('intelligence')
   const [scores, setScores] = useState({ ...vendor.raScores })
   const [ddDone, setDdDone] = useState(vendor.ddCompleted || [])
   const [exporting, setExporting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const updateScore = (key, val) => {
     const ns = { ...scores, [key]: Number(val) }
@@ -53,6 +54,12 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
       {/* Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <Btn variant="ghost" small onClick={onBack}>← Back</Btn>
+        {isAdmin && (
+          <Btn variant="ghost" small onClick={() => setShowDeleteConfirm(true)}
+            style={{ marginLeft: 'auto', color: t.text3, fontSize: 11, opacity: 0.6 }}>
+            ⋯ Delete Vendor
+          </Btn>
+        )}
         <span style={{ fontSize: 13, color: t.text3 }}>Vendors /</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{vendor.name}</span>
       </div>
@@ -154,6 +161,25 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
         !vendor.alerts?.length
           ? <Card style={{ padding: 36, textAlign: 'center' }}><div style={{ fontSize: 24, marginBottom: 6 }}>✅</div><div style={{ fontSize: 14, fontWeight: 700, color: t.successText }}>No active alerts</div></Card>
           : <Card style={{ overflow: 'hidden' }}>{vendor.alerts.map(a => <AlertRow key={a.id} alert={a} />)}</Card>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div onClick={() => setShowDeleteConfirm(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: t.surface, borderRadius: 16, padding: 30, width: '100%', maxWidth: 400, boxShadow: '0 24px 64px rgba(0,0,0,.35)', border: `1px solid ${t.dangerText}44` }}>
+            <div style={{ fontSize: 28, marginBottom: 10, textAlign: 'center' }}>⚠️</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: t.text, marginBottom: 6, textAlign: 'center' }}>Delete Vendor?</div>
+            <div style={{ fontSize: 13, color: t.text2, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>
+              This will permanently delete <strong style={{ color: t.text }}>{vendor.name}</strong> and all associated documents, comments and risk data. This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <Btn variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</Btn>
+              <Btn variant="danger" onClick={() => { setShowDeleteConfirm(false); onDelete(vendor.id) }}>Delete Permanently</Btn>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
