@@ -115,6 +115,34 @@ export function SettingsPage() {
   const [delUser, setDelUser] = useState(null)
   const [search, setSearch]   = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
+  const [pwModal,   setPwModal]   = useState(null)  // {user} | null
+  const [pwValue,   setPwValue]   = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwError,   setPwError]   = useState(null)
+  const [pwSuccess, setPwSuccess] = useState(null)
+
+  const handleSetPassword = async () => {
+    setPwError(null); setPwSuccess(null)
+    if (!pwValue || pwValue.length < 8) { setPwError('Password must be at least 8 characters'); return }
+    if (pwValue !== pwConfirm) { setPwError('Passwords do not match'); return }
+    setPwLoading(true)
+    try {
+      const res = await fetch('/api/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pwModal.user.email, password: pwValue }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to set password')
+      setPwSuccess(`Password updated for ${pwModal.user.name}`)
+      setPwValue(''); setPwConfirm('')
+    } catch (err) {
+      setPwError(err.message)
+    } finally {
+      setPwLoading(false)
+    }
+  }
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase()
@@ -204,6 +232,7 @@ export function SettingsPage() {
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <Btn small variant="ghost" onClick={() => setModal({ mode: 'edit', user: u })}>Edit</Btn>
+                        <Btn small variant="ghost" onClick={() => { setPwModal({ user: u }); setPwValue(''); setPwConfirm(''); setPwError(null); setPwSuccess(null) }} style={{ color: t.accentText, borderColor: t.accent + '44' }}>🔑 Password</Btn>
                           {!isMe && <Btn small variant="danger" onClick={() => setDelUser(u)}>Delete</Btn>}
                         </div>
                       </td>
@@ -330,6 +359,43 @@ export function SettingsPage() {
 
       {modal && <UserModal user={modal.mode === 'edit' ? modal.user : null} onClose={() => setModal(null)} onSave={handleSave} meId={currentUser.id} />}
       {delUser && <DeleteConfirm user={delUser} onClose={() => setDelUser(null)} onConfirm={() => { deleteUser(delUser.id); setDelUser(null) }} />}
+
+      {pwModal && (
+        <div onClick={() => setPwModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: t.surface, borderRadius: 16, padding: 30, width: '100%', maxWidth: 420, boxShadow: '0 24px 64px rgba(0,0,0,.35)', border: `1px solid ${t.border}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: t.text }}>🔑 Set Password</div>
+                <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>Set a new password for <strong style={{ color: t.text }}>{pwModal.user.name}</strong></div>
+                <div style={{ fontSize: 11, color: t.text3, marginTop: 1 }}>{pwModal.user.email}</div>
+              </div>
+              <button onClick={() => setPwModal(null)} style={{ background: t.surface2, border: `1px solid ${t.border}`, borderRadius: 8, width: 28, height: 28, cursor: 'pointer', color: t.text2, fontSize: 13 }}>✕</button>
+            </div>
+
+            {pwSuccess && <div style={{ padding: '10px 14px', background: t.successBg, border: `1px solid ${t.successText}44`, borderRadius: 8, fontSize: 13, color: t.successText, marginBottom: 14 }}>✅ {pwSuccess}</div>}
+            {pwError   && <div style={{ padding: '10px 14px', background: t.dangerBg,  border: `1px solid ${t.dangerText}44`,  borderRadius: 8, fontSize: 13, color: t.dangerText,  marginBottom: 14 }}>⚠️ {pwError}</div>}
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.text2, display: 'block', marginBottom: 4 }}>New Password</label>
+              <input type="password" value={pwValue} onChange={e => setPwValue(e.target.value)} placeholder="Min. 8 characters"
+                style={{ width: '100%', padding: '9px 12px', border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 13, outline: 'none', color: t.text, background: t.inputBg, boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.text2, display: 'block', marginBottom: 4 }}>Confirm Password</label>
+              <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} placeholder="Repeat password"
+                onKeyDown={e => e.key === 'Enter' && handleSetPassword()}
+                style={{ width: '100%', padding: '9px 12px', border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 13, outline: 'none', color: t.text, background: t.inputBg, boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <Btn variant="ghost" onClick={() => setPwModal(null)}>Cancel</Btn>
+              <Btn variant="accent" onClick={handleSetPassword} disabled={pwLoading}>
+                {pwLoading ? 'Updating...' : 'Set Password'}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
