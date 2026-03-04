@@ -145,3 +145,71 @@ function mapUserToDB(u) {
   if (u.avatarIdx  !== undefined) out.avatar_idx = u.avatarIdx
   return out
 }
+
+// ─── DOCUMENTS ────────────────────────────────────────────────────────────────
+
+export async function fetchDocuments(vendorId) {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('vendor_id', vendorId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function uploadDocument(vendorId, file, meta) {
+  const filePath = `${vendorId}/${Date.now()}_${file.name}`
+  const { error: uploadError } = await supabase.storage
+    .from('vendor-documents')
+    .upload(filePath, file)
+  if (uploadError) throw uploadError
+
+  const { data, error } = await supabase
+    .from('documents')
+    .insert([{ vendor_id: vendorId, name: file.name, file_path: filePath, file_size: file.size, file_type: file.type, ...meta }])
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteDocument(doc) {
+  await supabase.storage.from('vendor-documents').remove([doc.file_path])
+  const { error } = await supabase.from('documents').delete().eq('id', doc.id)
+  if (error) throw error
+}
+
+export async function getDocumentURL(filePath) {
+  const { data } = await supabase.storage
+    .from('vendor-documents')
+    .createSignedUrl(filePath, 3600)
+  return data?.signedUrl
+}
+
+// ─── COMMENTS ─────────────────────────────────────────────────────────────────
+
+export async function fetchComments(vendorId) {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*')
+    .eq('vendor_id', vendorId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+export async function createComment(comment) {
+  const { data, error } = await supabase
+    .from('comments')
+    .insert([comment])
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteComment(id) {
+  const { error } = await supabase.from('comments').delete().eq('id', id)
+  if (error) throw error
+}

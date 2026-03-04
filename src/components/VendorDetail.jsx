@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useTheme, useAuth } from '../context'
-import { Card, Btn, TabBar, ScorePill, SBadge, AlertRow, SectionHeader } from './ui'
+import { Card, Btn, TabBar, ScorePill, SBadge, AlertRow } from './ui'
 import { RadarChart } from './charts'
 import { IntelligencePanel } from './IntelligencePanel'
-import { riskColor, riskLabel, alertStyle } from '../utils'
+import { DocumentsTab } from './DocumentsTab'
+import { CommentsTab } from './CommentsTab'
+import { exportVendorPDF } from '../pdfExport'
+import { riskColor, riskLabel } from '../utils'
 import { RA_DIMS, DD_ITEMS } from '../data'
 
 export function VendorDetail({ vendor, onBack, onUpdate }) {
@@ -12,6 +15,7 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
   const [tab, setTab] = useState('intelligence')
   const [scores, setScores] = useState({ ...vendor.raScores })
   const [ddDone, setDdDone] = useState(vendor.ddCompleted || [])
+  const [exporting, setExporting] = useState(false)
 
   const updateScore = (key, val) => {
     const ns = { ...scores, [key]: Number(val) }
@@ -27,12 +31,20 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
     onUpdate({ ...vendor, ddCompleted: nd })
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try { await exportVendorPDF(vendor) }
+    finally { setExporting(false) }
+  }
+
   const ddPct = Math.round((ddDone.length / DD_ITEMS.length) * 100)
 
   const tabs = [
     ['intelligence', '🔍 Intelligence'],
     ['assessment',   '📊 Assessment'],
     ['dd',           `✅ Due Diligence (${ddPct}%)`],
+    ['documents',    '📁 Documents'],
+    ['comments',     '💬 Notes'],
     ['alerts',       `🚨 Alerts${vendor.alerts?.length ? ` (${vendor.alerts.length})` : ''}`],
   ]
 
@@ -56,21 +68,22 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
             <a href={vendor.website} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: t.accent }}>{vendor.website}</a>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 10, color: t.text3, textTransform: 'uppercase', letterSpacing: '.08em' }}>Risk Score</div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: riskColor(vendor.riskScore), lineHeight: 1 }}>{vendor.riskScore}</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: riskColor(vendor.riskScore) }}>{riskLabel(vendor.riskScore)} Risk</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <Btn variant="ghost" small onClick={handleExport} disabled={exporting}>
+            {exporting ? '⏳ Exporting...' : '⬇ Export PDF'}
+          </Btn>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: t.text3, textTransform: 'uppercase', letterSpacing: '.08em' }}>Risk Score</div>
+            <div style={{ fontSize: 34, fontWeight: 800, color: riskColor(vendor.riskScore), lineHeight: 1 }}>{vendor.riskScore}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: riskColor(vendor.riskScore) }}>{riskLabel(vendor.riskScore)} Risk</div>
+          </div>
         </div>
       </div>
 
       <TabBar tabs={tabs} active={tab} onChange={setTab} style={{ marginBottom: 20 }} />
 
-      {/* ── INTELLIGENCE ── */}
-      {tab === 'intelligence' && (
-        <IntelligencePanel vendor={vendor} onUpdate={onUpdate} />
-      )}
+      {tab === 'intelligence' && <IntelligencePanel vendor={vendor} onUpdate={onUpdate} />}
 
-      {/* ── ASSESSMENT ── */}
       {tab === 'assessment' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
           <Card style={{ padding: 22 }}>
@@ -106,7 +119,6 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
         </div>
       )}
 
-      {/* ── DUE DILIGENCE ── */}
       {tab === 'dd' && (
         <Card style={{ padding: 22 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
@@ -114,9 +126,7 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
               <div style={{ fontSize: 14, fontWeight: 800, color: t.text }}>Due Diligence Checklist</div>
               <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>{ddDone.length} of {DD_ITEMS.length} items complete</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: ddPct === 100 ? t.successText : ddPct > 50 ? t.warnText : t.dangerText, lineHeight: 1 }}>{ddPct}%</div>
-            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: ddPct === 100 ? t.successText : ddPct > 50 ? t.warnText : t.dangerText, lineHeight: 1 }}>{ddPct}%</div>
           </div>
           <div style={{ background: t.border, borderRadius: 999, height: 8, marginBottom: 20 }}>
             <div style={{ background: ddPct === 100 ? t.successText : ddPct > 50 ? t.warnText : t.dangerText, height: 8, borderRadius: 999, width: `${ddPct}%`, transition: 'width .3s' }} />
@@ -137,16 +147,13 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
         </Card>
       )}
 
-      {/* ── ALERTS ── */}
+      {tab === 'documents' && <DocumentsTab vendor={vendor} onScoreUpdate={onUpdate} />}
+      {tab === 'comments'  && <CommentsTab  vendor={vendor} />}
+
       {tab === 'alerts' && (
         !vendor.alerts?.length
-          ? <Card style={{ padding: 36, textAlign: 'center' }}>
-              <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: t.successText }}>No active alerts</div>
-            </Card>
-          : <Card style={{ overflow: 'hidden' }}>
-              {vendor.alerts.map(a => <AlertRow key={a.id} alert={a} />)}
-            </Card>
+          ? <Card style={{ padding: 36, textAlign: 'center' }}><div style={{ fontSize: 24, marginBottom: 6 }}>✅</div><div style={{ fontSize: 14, fontWeight: 700, color: t.successText }}>No active alerts</div></Card>
+          : <Card style={{ overflow: 'hidden' }}>{vendor.alerts.map(a => <AlertRow key={a.id} alert={a} />)}</Card>
       )}
     </div>
   )

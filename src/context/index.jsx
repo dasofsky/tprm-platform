@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { supabase } from '../supabase'
 import { fetchVendors, createVendor, updateVendor as dbUpdateVendor, deleteVendor as dbDeleteVendor } from '../db'
-import { fetchUsers,   createUser,   updateUser   as dbUpdateUser,   deleteUser   as dbDeleteUser   } from '../db'
+import { fetchUsers, createUser, updateUser as dbUpdateUser, deleteUser as dbDeleteUser } from '../db'
 import { INIT_VENDORS } from '../data'
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
@@ -33,6 +34,116 @@ export function ThemeProvider({ children }) {
     warnText:    dark ? '#fbbf24' : '#d97706',
   }
   return <ThemeCtx.Provider value={t}>{children}</ThemeCtx.Provider>
+}
+
+// ─── AUTH CONTEXT ─────────────────────────────────────────────────────────────
+const AuthCtx = createContext()
+export const useAuth = () => useContext(AuthCtx)
+
+const INIT_USERS = [
+  { id: 1, name: 'Alex Morgan',   email: 'alex@company.com',   role: 'admin',   access: 'read_write', status: 'active',   initials: 'AM', last_login: null, department: 'Risk & Compliance', avatar_idx: 0 },
+  { id: 2, name: 'Jamie Chen',    email: 'jamie@company.com',  role: 'analyst', access: 'read_write', status: 'active',   initials: 'JC', last_login: null, department: 'Security',          avatar_idx: 1 },
+  { id: 3, name: 'Sam Rivera',    email: 'sam@company.com',    role: 'viewer',  access: 'read_only',  status: 'active',   initials: 'SR', last_login: null, department: 'Operations',        avatar_idx: 2 },
+  { id: 4, name: 'Taylor Brooks', email: 'taylor@company.com', role: 'analyst', access: 'read_write', status: 'inactive', initials: 'TB', last_login: null, department: 'Finance',           avatar_idx: 3 },
+  { id: 5, name: 'Jordan Kim',    email: 'jordan@company.com', role: 'admin',   access: 'read_write', status: 'active',   initials: 'JK', last_login: null, department: 'IT',                avatar_idx: 4 },
+]
+
+export function AuthProvider({ children }) {
+  const [users,       setUsers]       = useState([])
+  const [authUser,    setAuthUser]    = useState(null)  // Supabase auth user
+  const [profileUser, setProfileUser] = useState(null)  // TPRM profile row
+  const [authLoading, setAuthLoading] = useState(true)
+  const [usersLoading,setUsersLoading]= useState(true)
+
+  // Listen for Supabase auth state changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthUser(session?.user ?? null)
+      setAuthLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Load users list and resolve current user profile
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  useEffect(() => {
+    if (authUser && users.length > 0) {
+      const match = users.find(u => u.email?.toLowerCase() === authUser.email?.toLowerCase())
+      setProfileUser(match || users[0])
+    }
+  }, [authUser, users])
+
+  async function loadUsers() {
+    try {
+      setUsersLoading(true)
+      const data = await fetchUsers()
+      if (data.length === 0) {
+        for (const u of INIT_USERS) await createUser(u)
+        setUsers(INIT_USERS)
+      } else {
+        setUsers(data)
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err)
+      setUsers(INIT_USERS)
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
+  const signOut = () => supabase.auth.signOut()
+
+  // The "current user" is the TPRM profile matched to auth email
+  // Fall back to first user if no match (for demo mode)
+  const currentUser = profileUser || users[0]
+  const isAdmin     = currentUser?.role === 'admin'
+  const canWrite    = currentUser?.access === 'read_write'
+
+  async function addUser(user) {
+    const initials   = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    const avatar_idx = users.length % 5
+    const saved = await createUser({ ...user, initials, avatar_idx, last_login: null, status: 'active' })
+    setUsers(p => [...p, saved])
+  }
+
+  async function updateUser(user) {
+    const { id, ...updates } = user
+    const saved = await dbUpdateUser(id, updates)
+    setUsers(p => p.map(u => u.id === id ? saved : u))
+    if (profileUser?.id === id) setProfileUser(saved)
+  }
+
+  async function deleteUser(id) {
+    await dbDeleteUser(id)
+    setUsers(p => p.filter(u => u.id !== id))
+  }
+
+  // Demo user switcher (used in Settings for testing)
+  const [demoOverride, setDemoOverride] = useState(null)
+  const setCurrentUser = (id) => {
+    const u = users.find(x => x.id === id)
+    if (u) setDemoOverride(u)
+  }
+  const effectiveUser = demoOverride || currentUser
+
+  return (
+    <AuthCtx.Provider value={{
+      users, authUser, currentUser: effectiveUser,
+      setCurrentUser, isAdmin: effectiveUser?.role === 'admin',
+      canWrite: effectiveUser?.access === 'read_write',
+      addUser, updateUser, deleteUser,
+      loading: authLoading || usersLoading,
+      signOut,
+    }}>
+      {children}
+    </AuthCtx.Provider>
+  )
 }
 
 // ─── VENDOR CONTEXT ───────────────────────────────────────────────────────────
@@ -82,71 +193,5 @@ export function VendorProvider({ children }) {
     <VendorCtx.Provider value={{ vendors, loading, error, addVendor, editVendor, removeVendor, reload: loadVendors }}>
       {children}
     </VendorCtx.Provider>
-  )
-}
-
-// ─── AUTH CONTEXT ─────────────────────────────────────────────────────────────
-const AuthCtx = createContext()
-export const useAuth = () => useContext(AuthCtx)
-
-const INIT_USERS = [
-  { id: 1, name: 'Alex Morgan',   email: 'alex@company.com',   role: 'admin',   access: 'read_write', status: 'active',   initials: 'AM', last_login: '2026-03-03T10:22:00Z', department: 'Risk & Compliance', avatar_idx: 0 },
-  { id: 2, name: 'Jamie Chen',    email: 'jamie@company.com',  role: 'analyst', access: 'read_write', status: 'active',   initials: 'JC', last_login: '2026-03-02T15:44:00Z', department: 'Security',          avatar_idx: 1 },
-  { id: 3, name: 'Sam Rivera',    email: 'sam@company.com',    role: 'viewer',  access: 'read_only',  status: 'active',   initials: 'SR', last_login: '2026-02-28T09:10:00Z', department: 'Operations',        avatar_idx: 2 },
-  { id: 4, name: 'Taylor Brooks', email: 'taylor@company.com', role: 'analyst', access: 'read_write', status: 'inactive', initials: 'TB', last_login: '2026-02-10T11:30:00Z', department: 'Finance',           avatar_idx: 3 },
-  { id: 5, name: 'Jordan Kim',    email: 'jordan@company.com', role: 'admin',   access: 'read_write', status: 'active',   initials: 'JK', last_login: '2026-03-01T08:55:00Z', department: 'IT',                avatar_idx: 4 },
-]
-
-export function AuthProvider({ children }) {
-  const [users,   setUsers]   = useState([])
-  const [curId,   setCurId]   = useState(1)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => { loadUsers() }, [])
-
-  async function loadUsers() {
-    try {
-      setLoading(true)
-      const data = await fetchUsers()
-      if (data.length === 0) {
-        for (const u of INIT_USERS) await createUser(u)
-        setUsers(INIT_USERS)
-      } else {
-        setUsers(data)
-      }
-    } catch (err) {
-      console.error('Failed to load users:', err)
-      setUsers(INIT_USERS)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const currentUser = users.find(u => u.id === curId) || users[0]
-  const isAdmin  = currentUser?.role === 'admin'
-  const canWrite = currentUser?.access === 'read_write'
-
-  async function addUser(user) {
-    const initials   = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    const avatar_idx = users.length % 5
-    const saved = await createUser({ ...user, initials, avatar_idx, last_login: null, status: 'active' })
-    setUsers(p => [...p, saved])
-  }
-
-  async function updateUser(user) {
-    const { id, ...updates } = user
-    const saved = await dbUpdateUser(id, updates)
-    setUsers(p => p.map(u => u.id === id ? saved : u))
-  }
-
-  async function deleteUser(id) {
-    await dbDeleteUser(id)
-    setUsers(p => p.filter(u => u.id !== id))
-  }
-
-  return (
-    <AuthCtx.Provider value={{ users, currentUser, setCurrentUser: setCurId, isAdmin, canWrite, addUser, updateUser, deleteUser, loading }}>
-      {children}
-    </AuthCtx.Provider>
   )
 }
