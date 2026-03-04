@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTheme, useAuth } from '../context'
 import { Card, Btn, TabBar, ScorePill, SBadge, AlertRow, SectionHeader } from './ui'
 import { RadarChart } from './charts'
+import { IntelligencePanel } from './IntelligencePanel'
 import { riskColor, riskLabel, alertStyle } from '../utils'
 import { RA_DIMS, DD_ITEMS } from '../data'
 
@@ -66,40 +67,7 @@ export function VendorDetail({ vendor, onBack, onUpdate }) {
 
       {/* ── INTELLIGENCE ── */}
       {tab === 'intelligence' && (
-        <div>
-          <Card style={{ padding: 20, marginBottom: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 4 }}>AI Security Intelligence</div>
-                <div style={{ fontSize: 12, color: t.text2, maxWidth: 420 }}>
-                  In the hosted version, Claude will search for certifications, breach history, compliance status & news about <strong style={{ color: t.text }}>{vendor.name}</strong>.
-                </div>
-                <a href={vendor.website} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 5, fontSize: 12, color: t.accent }}>🌐 {vendor.website}</a>
-              </div>
-              {canWrite
-                ? <Btn variant="accent" onClick={() => alert('AI Research will be enabled once deployed with an API key.')}>🔍 Run Research</Btn>
-                : <div style={{ fontSize: 12, color: t.text3, padding: '8px 12px', background: t.surface2, borderRadius: 8, border: `1px solid ${t.border}` }}>👁 Read-only access</div>
-              }
-            </div>
-          </Card>
-
-          {/* Score summary */}
-          <Card style={{ padding: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 12 }}>Current Risk Scores</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
-              {RA_DIMS.map(d => {
-                const val = vendor.raScores[d.key] || 0
-                return (
-                  <div key={d.key} style={{ textAlign: 'center', padding: '12px 8px', background: t.surface2, borderRadius: 10, border: `1px solid ${t.border}` }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: t.text2, marginBottom: 5 }}>{d.label}</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: riskColor(val) }}>{val}</div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: riskColor(val), marginTop: 3 }}>{riskLabel(val)}</div>
-                  </div>
-                )
-              })}
-            </div>
-          </Card>
-        </div>
+        <IntelligencePanel vendor={vendor} onUpdate={onUpdate} />
       )}
 
       {/* ── ASSESSMENT ── */}
