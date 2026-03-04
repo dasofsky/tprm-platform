@@ -4,6 +4,7 @@ import { useAuth } from '../context'
 import { Card, Btn, SBadge, ScorePill, SectionHeader, AlertRow } from './ui'
 import { BarChart, RadarChart, MiniLine } from './charts'
 import { riskColor, tierDot, alertStyle } from '../utils'
+import { AssignedTo } from './AssignedTo'
 import { DD_ITEMS, RA_DIMS } from '../data'
 
 // All possible columns with labels
@@ -86,7 +87,7 @@ function VendorLogo({ vendor, size = 28 }) {
 }
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
-export function OverviewTab({ vendors, onSelect, onAdd }) {
+export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
   const t = useTheme()
   const { canWrite } = useAuth()
   const [visibleCols, setVisibleCols] = useState(DEFAULT_COLS)
@@ -103,7 +104,10 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
     <div className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <SectionHeader title="Portfolio Overview" subtitle="Real-time summary of your third-party vendor landscape" />
-        {canWrite && <Btn variant="primary" onClick={onAdd}>+ Add Vendor</Btn>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {canWrite && <Btn variant="ghost" small onClick={onBulkImport}>📥 Bulk Import</Btn>}
+          {canWrite && <Btn variant="primary" onClick={onAdd}>+ Add Vendor</Btn>}
+        </div>
       </div>
 
       {/* KPI cards */}
@@ -170,6 +174,7 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
                 {show('contact')   && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact</th>}
                 {show('contactEmail') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact Email</th>}
                 {show('jira')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Jira</th>}
+                {show('assessor')  && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Assessor</th>}
                 {show('alerts')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Alerts</th>}
                 <th style={{ padding: '9px 14px', borderBottom: `1px solid ${t.border}` }} />
               </tr>
@@ -214,6 +219,13 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
                       <td style={{ padding: '10px 14px' }}>
                         {v.jiraTicket
                           ? <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4 }}>{v.jiraTicket}</span>
+                          : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
+                      </td>
+                    )}
+                    {show('assessor')  && (
+                      <td style={{ padding: '10px 14px' }}>
+                        {v.assignedTo
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: t.text }}>{v.assignedTo.split(' ')[0]}</span>
                           : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
                       </td>
                     )}

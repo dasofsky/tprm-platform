@@ -35,7 +35,7 @@ Return ONLY a valid JSON object with NO additional text, markdown, or explanatio
   "weaknesses": ["up to 4 key concerns"],
   "compliance": ["list of compliance frameworks"],
   "bugBounty": true,
-  "newsHighlights": [{"title": "...", "date": "...", "sentiment": "positive|negative|neutral"}],
+  "newsHighlights": [{"title": "...", "date": "...", "sentiment": "positive|negative|neutral", "url": "https://... or null"}],
   "recommendedScores": {
     "security": 50,
     "compliance": 50,

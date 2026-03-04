@@ -4,7 +4,8 @@ import { Navbar }         from './components/Navbar'
 import { OverviewTab, DDTab, RATab, MonitoringTab } from './components/tabs'
 import { SettingsPage }   from './components/Settings'
 import { VendorDetail }   from './components/VendorDetail'
-import { AddVendorModal } from './components/AddVendorModal'
+import { AddVendorModal }   from './components/AddVendorModal'
+import { BulkImportModal }  from './components/BulkImportModal'
 import { LoginPage }      from './components/LoginPage'
 
 function LoadingScreen() {
@@ -27,7 +28,8 @@ function AppShell() {
 
   const [tab,      setTab]      = useState('overview')
   const [selected, setSelected] = useState(null)
-  const [showAdd,  setShowAdd]  = useState(false)
+  const [showAdd,    setShowAdd]    = useState(false)
+  const [showBulk,   setShowBulk]   = useState(false)
 
   const currentVendor = selected ? vendors.find(v => v.id === selected.id) || selected : null
 
@@ -66,7 +68,7 @@ function AppShell() {
           <VendorDetail vendor={currentVendor} onBack={() => setSelected(null)} onUpdate={handleUpdateVendor} onDelete={handleDeleteVendor} />
         ) : (
           <>
-            {tab === 'overview'   && <OverviewTab   vendors={vendors} onSelect={setSelected} onAdd={() => setShowAdd(true)} />}
+            {tab === 'overview'   && <OverviewTab   vendors={vendors} onSelect={setSelected} onAdd={() => setShowAdd(true)} onBulkImport={() => setShowBulk(true)} />}
             {tab === 'dd'         && <DDTab          vendors={vendors} onSelect={setSelected} />}
             {tab === 'ra'         && <RATab          vendors={vendors} onSelect={setSelected} />}
             {tab === 'monitoring' && <MonitoringTab  vendors={vendors} onSelect={setSelected} />}
@@ -74,6 +76,13 @@ function AppShell() {
           </>
         )}
       </div>
+
+      {showBulk && (
+        <BulkImportModal
+          onClose={() => setShowBulk(false)}
+          onImport={async (v) => { await addVendor(v) }}
+        />
+      )}
 
       {showAdd && (
         <AddVendorModal

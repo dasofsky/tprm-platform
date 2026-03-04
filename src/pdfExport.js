@@ -317,7 +317,110 @@ export async function exportVendorPDF(vendor) {
     })
   }
 
-  // ── FOOTER ────────────────────────────────────────────────────────────────
+  // ── DOCUMENTS USED IN ANALYSIS ───────────────────────────────────────────
+  // Fetch documents from Supabase for this vendor
+  let vendorDocs = []
+  try {
+    const { fetchDocuments } = await import('./db.js')
+    vendorDocs = await fetchDocuments(vendor.id)
+  } catch {}
+
+  if (vendorDocs.length > 0) {
+    if (y > 230) { doc.addPage(); y = 20 }
+
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...DARK)
+    doc.text('Documents Used in Risk Analysis', margin, y)
+    y += 5
+    doc.setDrawColor(226, 232, 240)
+    doc.line(margin, y, W - margin, y)
+    y += 7
+
+    vendorDocs.forEach(d => {
+      if (y > 265) { doc.addPage(); y = 20 }
+
+      // Doc name + type
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...DARK)
+      doc.text(d.name || 'Untitled', margin, y)
+
+      const docTypeLabel = d.doc_type ? d.doc_type.replace(/_/g,' ').replace(/\w/g, l => l.toUpperCase()) : 'Document'
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...GRAY)
+      doc.text(` — ${docTypeLabel}`, margin + doc.getTextWidth(d.name || 'Untitled'), y)
+      y += 5
+
+      // Summary
+      if (d.summary) {
+        const lines = doc.splitTextToSize(d.summary, W - margin*2)
+        doc.setFontSize(8)
+        doc.setTextColor(...GRAY)
+        doc.text(lines, margin, y)
+        y += lines.length * 4.5
+      }
+
+      // Score impacts
+      const impacts = d.score_impact ? Object.entries(d.score_impact).filter(([,v]) => v !== 0) : []
+      if (impacts.length > 0) {
+        doc.setFontSize(7.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...GRAY)
+        doc.text('Score impact: ', margin, y)
+        let ix = margin + doc.getTextWidth('Score impact: ')
+        impacts.forEach(([k, v]) => {
+          const iCol = v > 0 ? GREEN : RED
+          doc.setTextColor(...iCol)
+          const label = `${k} ${v > 0 ? '+' : ''}${v}  `
+          doc.text(label, ix, y)
+          ix += doc.getTextWidth(label)
+        })
+        y += 5
+      }
+      y += 3
+    })
+  }
+
+  // ── NEWS HIGHLIGHTS ───────────────────────────────────────────────────────
+  if (vendor.research?.newsHighlights?.length > 0) {
+    if (y > 230) { doc.addPage(); y = 20 }
+
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...DARK)
+    doc.text('Recent News', margin, y)
+    y += 5
+    doc.setDrawColor(226, 232, 240)
+    doc.line(margin, y, W - margin, y)
+    y += 7
+
+    vendor.research.newsHighlights.forEach(n => {
+      if (y > 268) { doc.addPage(); y = 20 }
+      const sentCol = n.sentiment === 'positive' ? GREEN : n.sentiment === 'negative' ? RED : GRAY
+      const icon    = n.sentiment === 'positive' ? '▲' : n.sentiment === 'negative' ? '▼' : '●'
+
+      doc.setFontSize(8.5)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...sentCol)
+      doc.text(icon, margin, y)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...DARK)
+      const titleLines = doc.splitTextToSize(n.title || '', W - margin*2 - 8)
+      doc.text(titleLines, margin + 6, y)
+      y += titleLines.length * 4.5
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      doc.setTextColor(...GRAY)
+      const dateSent = [n.date, n.sentiment ? `Sentiment: ${n.sentiment}` : ''].filter(Boolean).join('  ·  ')
+      doc.text(dateSent, margin + 6, y)
+      y += 6
+    })
+  }
+
+    // ── FOOTER ────────────────────────────────────────────────────────────────
   const pageCount = doc.internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)

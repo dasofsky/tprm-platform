@@ -59,6 +59,7 @@ function mapVendorFromDB(row) {
     monData:     row.mon_data    || [],
     jiraTicket:  row.jira_ticket,
     logoUrl:     row.logo_url,
+    assignedTo:  row.assigned_to,
   }
 }
 
@@ -82,6 +83,7 @@ function mapVendorToDB(v) {
   if (v.monData     !== undefined) out.mon_data     = v.monData
   if (v.jiraTicket  !== undefined) out.jira_ticket  = v.jiraTicket
   if (v.logoUrl     !== undefined) out.logo_url     = v.logoUrl
+  if (v.assignedTo  !== undefined) out.assigned_to  = v.assignedTo
   out.updated_at = new Date().toISOString()
   return out
 }

@@ -209,7 +209,14 @@ export function IntelligencePanel({ vendor, onUpdate }) {
                       <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < result.newsHighlights.length - 1 ? `1px solid ${t.border}` : 'none', alignItems: 'center' }}>
                         <span style={{ fontSize: 14 }}>{n.sentiment === 'positive' ? '📈' : n.sentiment === 'negative' ? '📉' : '📰'}</span>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{n.title}</div>
+                          {n.url
+                            ? <a href={n.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 600, color: t.accent, textDecoration: 'none' }}
+                                onMouseOver={e => e.target.style.textDecoration='underline'}
+                                onMouseOut={e => e.target.style.textDecoration='none'}>
+                                {n.title} ↗
+                              </a>
+                            : <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{n.title}</div>
+                          }
                           <div style={{ fontSize: 11, color: t.text3, marginTop: 1 }}>{n.date}</div>
                         </div>
                         <span style={{ fontSize: 10, fontWeight: 700, color: sentColor, textTransform: 'capitalize' }}>{n.sentiment}</span>

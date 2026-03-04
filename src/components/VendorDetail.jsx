@@ -6,6 +6,7 @@ import { IntelligencePanel } from './IntelligencePanel'
 import { DocumentsTab } from './DocumentsTab'
 import { CommentsTab } from './CommentsTab'
 import { exportVendorPDF } from '../pdfExport'
+import { AssignedTo } from './AssignedTo'
 import { riskColor, riskLabel } from '../utils'
 import { RA_DIMS, DD_ITEMS } from '../data'
 
@@ -76,6 +77,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <AssignedTo vendor={vendor} onUpdate={onUpdate} />
           <Btn variant="ghost" small onClick={handleExport} disabled={exporting}>
             {exporting ? '⏳ Exporting...' : '⬇ Export PDF'}
           </Btn>
