@@ -72,11 +72,12 @@ export function DocumentsTab({ vendor, onScoreUpdate }) {
 
   async function analyzeDocument(doc, file) {
     try {
-      const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+      const ext = '.' + file.name.split('.').pop().toLowerCase()
+      const isPlainText = ['.txt', '.csv'].includes(ext)
 
-      // For non-PDFs read as text; PDFs are fetched server-side from Supabase Storage
+      // Only read file content for plain text — everything else is fetched server-side
       let textContent = null
-      if (!isPDF) {
+      if (isPlainText) {
         textContent = await file.text().catch(() => null)
       }
 
@@ -87,9 +88,8 @@ export function DocumentsTab({ vendor, onScoreUpdate }) {
           vendorName:  vendor.name,
           fileName:    file.name,
           docType:     doc.doc_type,
-          filePath:    doc.file_path,   // server fetches PDF directly from Supabase
-          isPDF,
-          textContent,
+          filePath:    doc.file_path,  // server fetches binary files from Supabase
+          textContent,                 // only set for .txt / .csv
         }),
       })
 

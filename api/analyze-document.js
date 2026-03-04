@@ -1,21 +1,63 @@
 export const config = { maxDuration: 60 }
 
+// File types Claude can read natively as documents
+const BINARY_TYPES = {
+  'application/pdf': 'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/msword': 'application/msword',
+  'application/vnd.ms-excel': 'application/vnd.ms-excel',
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+  'image/gif': 'image/gif',
+}
+
+// Map file extension to mime type for cases where browser sends wrong type
+const EXT_TO_MIME = {
+  '.pdf':  'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.doc':  'application/msword',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.xls':  'application/vnd.ms-excel',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png':  'image/png',
+  '.webp': 'image/webp',
+  '.txt':  'text/plain',
+  '.csv':  'text/plain',
+}
+
+// Which content block type Claude expects for each mime
+function getBlockType(mime) {
+  if (mime?.startsWith('image/')) return 'image'
+  if (mime && mime !== 'text/plain') return 'document'
+  return 'text'
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const apiKey        = process.env.ANTHROPIC_API_KEY
-  const supabaseUrl   = process.env.SUPABASE_URL
-  const serviceKey    = process.env.SUPABASE_SERVICE_KEY
+  const apiKey      = process.env.ANTHROPIC_API_KEY
+  const supabaseUrl = process.env.SUPABASE_URL
+  const serviceKey  = process.env.SUPABASE_SERVICE_KEY
 
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' })
 
-  const { vendorName, fileName, docType, filePath, textContent, isPDF } = req.body
+  const { vendorName, fileName, docType, filePath, textContent } = req.body
+
+  // Determine mime type from filename extension
+  const ext  = '.' + (fileName?.split('.').pop() || '').toLowerCase()
+  const mime = EXT_TO_MIME[ext] || 'text/plain'
+  const blockType = getBlockType(mime)
+
+  console.log(`analyze-document: file=${fileName}, ext=${ext}, mime=${mime}, blockType=${blockType}`)
 
   try {
     let userContent
 
-    if (isPDF && filePath && supabaseUrl && serviceKey) {
-      // Get a fresh signed URL for the file from Supabase Storage
+    if (blockType !== 'text' && filePath && supabaseUrl && serviceKey) {
+      // Fetch binary file server-side from Supabase Storage
       const signedRes = await fetch(
         `${supabaseUrl}/storage/v1/object/sign/vendor-documents/${filePath}`,
         {
@@ -33,29 +75,30 @@ export default async function handler(req, res) {
         ? `${supabaseUrl}/storage/v1${signedData.signedURL}`
         : null
 
-      console.log(`PDF via URL: filePath=${filePath}, gotUrl=${!!signedUrl}`)
-
-      if (signedUrl) {
-        // Fetch the PDF bytes server-side and send as base64 to Claude
-        const pdfRes    = await fetch(signedUrl)
-        const pdfBuffer = await pdfRes.arrayBuffer()
-        const base64    = Buffer.from(pdfBuffer).toString('base64')
-
-        console.log(`PDF fetched: bytes=${pdfBuffer.byteLength}, base64Length=${base64.length}`)
-
-        userContent = [
-          {
-            type:   'document',
-            source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-          },
-          { type: 'text', text: buildPrompt(vendorName, fileName, docType) },
-        ]
+      if (!signedUrl) {
+        console.log('Could not get signed URL, falling back to text description')
+        userContent = buildTextPrompt(vendorName, fileName, docType, `[File could not be retrieved: ${fileName}]`)
       } else {
-        console.log('Could not get signed URL, falling back to text mode')
-        userContent = buildTextPrompt(vendorName, fileName, docType, textContent)
+        const fileRes    = await fetch(signedUrl)
+        const fileBuffer = await fileRes.arrayBuffer()
+        const base64     = Buffer.from(fileBuffer).toString('base64')
+        console.log(`Fetched file: bytes=${fileBuffer.byteLength}, base64=${base64.length}`)
+
+        if (blockType === 'image') {
+          userContent = [
+            { type: 'image',    source: { type: 'base64', media_type: mime, data: base64 } },
+            { type: 'text',     text: buildPrompt(vendorName, fileName, docType) },
+          ]
+        } else {
+          // document block (PDF, DOCX, XLSX)
+          userContent = [
+            { type: 'document', source: { type: 'base64', media_type: mime, data: base64 } },
+            { type: 'text',     text: buildPrompt(vendorName, fileName, docType) },
+          ]
+        }
       }
     } else {
-      // Non-PDF: use the text content passed from the client
+      // Plain text / CSV — use text content passed from client
       console.log(`Text mode: length=${textContent?.length ?? 0}`)
       userContent = buildTextPrompt(vendorName, fileName, docType, textContent)
     }
@@ -65,7 +108,8 @@ export default async function handler(req, res) {
       'x-api-key':         apiKey,
       'anthropic-version': '2023-06-01',
     }
-    if (Array.isArray(userContent)) {
+    // Enable document support beta for non-image binary files
+    if (Array.isArray(userContent) && userContent[0]?.type === 'document') {
       headers['anthropic-beta'] = 'pdfs-2024-09-25'
     }
 
@@ -88,7 +132,7 @@ export default async function handler(req, res) {
     }
 
     const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
-    console.log(`Response preview: ${text.slice(0, 150)}`)
+    console.log(`Response preview: ${text.slice(0, 200)}`)
 
     try {
       const match  = text.match(/\{[\s\S]*\}/)
@@ -112,7 +156,7 @@ File: ${fileName}
 Document type: ${docType}
 
 Read the full document carefully and extract all risk-relevant information.
-Return ONLY valid JSON — no markdown, no extra text:
+Return ONLY valid JSON — no markdown fences, no extra text:
 {
   "summary": "2-3 sentence summary of the document and its risk significance",
   "keyFindings": ["specific finding 1", "specific finding 2", "specific finding 3"],
@@ -125,7 +169,7 @@ Return ONLY valid JSON — no markdown, no extra text:
   }
 }
 
-For scoreImpact: positive numbers (+5 to +20) improve the score (e.g. SOC 2 cert), negative (-5 to -20) reveal concerns, 0 if no impact.`
+For scoreImpact: positive numbers (+5 to +20) improve the score (e.g. SOC 2 cert → security +15), negative (-5 to -20) reveal concerns, 0 if no impact.`
 }
 
 function buildTextPrompt(vendorName, fileName, docType, textContent) {
