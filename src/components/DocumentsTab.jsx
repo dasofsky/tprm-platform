@@ -72,27 +72,32 @@ export function DocumentsTab({ vendor, onScoreUpdate }) {
 
   async function analyzeDocument(doc, file) {
     try {
-      // Read file content for analysis
-      let content = ''
-      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        content = `[PDF file: ${file.name} — ${fmtSize(file.size)}]`
-      } else {
-        content = await file.text().catch(() => `[Binary file: ${file.name}]`)
-        content = content.slice(0, 6000) // limit to 6k chars
+      const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+
+      // For non-PDFs read as text; PDFs are fetched server-side from Supabase Storage
+      let textContent = null
+      if (!isPDF) {
+        textContent = await file.text().catch(() => null)
       }
 
       const response = await fetch('/api/analyze-document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vendorName: vendor.name,
-          fileName:   file.name,
-          docType:    doc.doc_type,
-          content,
+          vendorName:  vendor.name,
+          fileName:    file.name,
+          docType:     doc.doc_type,
+          filePath:    doc.file_path,   // server fetches PDF directly from Supabase
+          isPDF,
+          textContent,
         }),
       })
 
-      if (!response.ok) return // Analysis optional — don't fail upload
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        console.error('analyze-document error:', errData)
+        return
+      }
 
       const analysis = await response.json()
 
