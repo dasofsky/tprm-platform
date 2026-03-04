@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTheme, useAuth } from '../context'
 import { Card, Btn, Spinner } from './ui'
 import { uploadDocument, fetchDocuments, deleteDocument, getDocumentURL } from '../db'
+import { supabase } from '../supabase'
 
 const DOC_TYPES = [
   { v: 'audit_report',   l: '📋 Audit Report',        icon: '📋' },
@@ -96,12 +97,7 @@ export function DocumentsTab({ vendor, onScoreUpdate }) {
       const analysis = await response.json()
 
       // Update the document row with AI analysis
-      const { supabase } = await import('./supabase').catch(() => ({ supabase: null }))
-      if (!supabase) return
-
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = (await import('../supabase')).supabase
-      await sb.from('documents').update({
+      await supabase.from('documents').update({
         summary:      analysis.summary,
         key_findings: analysis.keyFindings || [],
         score_impact: analysis.scoreImpact || {},
