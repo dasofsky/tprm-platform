@@ -50,6 +50,7 @@ function mapVendorFromDB(row) {
     riskScore:   row.risk_score,
     contact:     row.contact,
     country:     row.country,
+    contactEmail: row.contact_email,
     raScores:    row.ra_scores,
     alerts:      row.alerts      || [],
     ddCompleted: row.dd_completed || [],
@@ -71,7 +72,8 @@ function mapVendorToDB(v) {
   if (v.status      !== undefined) out.status       = v.status
   if (v.riskScore   !== undefined) out.risk_score   = v.riskScore
   if (v.contact     !== undefined) out.contact      = v.contact
-  if (v.country     !== undefined) out.country      = v.country
+  if (v.country       !== undefined) out.country        = v.country
+  if (v.contactEmail  !== undefined) out.contact_email  = v.contactEmail
   if (v.raScores    !== undefined) out.ra_scores    = v.raScores
   if (v.alerts      !== undefined) out.alerts       = v.alerts
   if (v.ddCompleted !== undefined) out.dd_completed = v.ddCompleted

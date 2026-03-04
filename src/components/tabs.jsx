@@ -15,7 +15,7 @@ const ALL_COLUMNS = [
   { id: 'riskScore', label: 'Risk Score' },
   { id: 'dd',        label: 'DD Progress' },
   { id: 'contact',   label: 'Contact' },
-  { id: 'country',   label: 'Country' },
+  { id: 'contactEmail', label: 'Contact Email' },
   { id: 'jira',      label: 'Jira Ticket' },
   { id: 'alerts',    label: 'Alerts' },
 ]
@@ -168,7 +168,7 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
                 {show('riskScore') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Risk Score</th>}
                 {show('dd')        && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>DD Progress</th>}
                 {show('contact')   && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact</th>}
-                {show('country')   && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Country</th>}
+                {show('contactEmail') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact Email</th>}
                 {show('jira')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Jira</th>}
                 {show('alerts')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Alerts</th>}
                 <th style={{ padding: '9px 14px', borderBottom: `1px solid ${t.border}` }} />
@@ -209,7 +209,7 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
                       </td>
                     )}
                     {show('contact')   && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.contact || '—'}</td>}
-                    {show('country')   && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.country || '—'}</td>}
+                    {show('contactEmail') && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.contactEmail ? <a href={`mailto:${v.contactEmail}`} style={{ color: '#6366f1' }}>{v.contactEmail}</a> : '—'}</td>}
                     {show('jira')      && (
                       <td style={{ padding: '10px 14px' }}>
                         {v.jiraTicket

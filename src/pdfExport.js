@@ -29,42 +29,22 @@ export async function exportVendorPDF(vendor) {
 
   // ── HEADER BAR ────────────────────────────────────────────────────────────
   doc.setFillColor(...DARK)
-  doc.rect(0, 0, W, 42, 'F')
+  doc.rect(0, 0, W, 36, 'F')
 
-  // Try to embed the Sonic logo from the public folder
-  try {
-    // Fetch the logo as a data URL
-    const logoResp = await fetch('/logo.jpg')
-    const logoBlob = await logoResp.blob()
-    const logoData = await new Promise(resolve => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result)
-      reader.readAsDataURL(logoBlob)
-    })
-    // Place logo in header — constrained height 28px
-    doc.addImage(logoData, 'JPEG', margin, 7, 50, 28, undefined, 'FAST')
-  } catch {
-    // Logo failed to load — just show the icon fallback
-    doc.setTextColor(165, 243, 252)
-    doc.setFontSize(18)
-    doc.text('◈', margin, 18)
-  }
-
-  // Title text to the right of the logo
   doc.setTextColor(...WHITE)
-  doc.setFontSize(16)
+  doc.setFontSize(18)
   doc.setFont('helvetica', 'bold')
-  doc.text('TPRM Platform', margin + 55, 16)
+  doc.text('Sonic TPRM Platform', margin, 16)
 
-  doc.setFontSize(8.5)
+  doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(165, 243, 252)
-  doc.text('Third-Party Risk Management — Vendor Risk Report', margin + 55, 24)
+  doc.text('Third-Party Risk Management — Vendor Risk Report', margin, 24)
 
   doc.setTextColor(148, 163, 184)
-  doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`, margin + 55, 32)
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`, margin, 31)
 
-  y = 52
+  y = 46
 
   // ── VENDOR TITLE ──────────────────────────────────────────────────────────
   doc.setTextColor(...DARK)
@@ -346,7 +326,7 @@ export async function exportVendorPDF(vendor) {
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...GRAY)
-    doc.text('Sonic Automotive — TPRM Platform — Confidential', margin, 292)
+    doc.text('Sonic TPRM Platform — Confidential', margin, 292)
     doc.text(`Page ${i} of ${pageCount}`, W - margin, 292, { align: 'right' })
   }
 

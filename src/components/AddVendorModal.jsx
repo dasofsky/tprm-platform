@@ -8,7 +8,7 @@ export function AddVendorModal({ onClose, onAdd }) {
   const t = useTheme()
   const [form, setForm] = useState({
     name: '', website: '', category: '', tier: 'High',
-    contact: '', country: '', jiraTicket: ''
+    contact: '', contactEmail: '', jiraTicket: ''
   })
   const [errors,     setErrors]     = useState({})
   const [categories, setCategories] = useState([])
@@ -121,8 +121,8 @@ export function AddVendorModal({ onClose, onAdd }) {
               <Inp value={form.contact} onChange={e => set('contact', e.target.value)} placeholder="John Smith" />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.text2, display: 'block', marginBottom: 4 }}>Country</label>
-              <Inp value={form.country} onChange={e => set('country', e.target.value)} placeholder="United States" />
+              <label style={{ fontSize: 12, fontWeight: 600, color: t.text2, display: 'block', marginBottom: 4 }}>Contact Email</label>
+              <Inp value={form.contactEmail} onChange={e => set('contactEmail', e.target.value)} placeholder="vendor@example.com" type="email" />
             </div>
           </div>
 
