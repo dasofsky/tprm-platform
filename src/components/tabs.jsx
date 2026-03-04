@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTheme } from '../context'
 import { useAuth } from '../context'
 import { Card, Btn, SBadge, ScorePill, SectionHeader, AlertRow } from './ui'
@@ -5,10 +6,90 @@ import { BarChart, RadarChart, MiniLine } from './charts'
 import { riskColor, tierDot, alertStyle } from '../utils'
 import { DD_ITEMS, RA_DIMS } from '../data'
 
+// All possible columns with labels
+const ALL_COLUMNS = [
+  { id: 'name',      label: 'Vendor',      always: true },
+  { id: 'category',  label: 'Category' },
+  { id: 'tier',      label: 'Tier' },
+  { id: 'status',    label: 'Status' },
+  { id: 'riskScore', label: 'Risk Score' },
+  { id: 'dd',        label: 'DD Progress' },
+  { id: 'contact',   label: 'Contact' },
+  { id: 'country',   label: 'Country' },
+  { id: 'jira',      label: 'Jira Ticket' },
+  { id: 'alerts',    label: 'Alerts' },
+]
+
+const DEFAULT_COLS = ['name', 'category', 'tier', 'status', 'riskScore', 'dd']
+
+// ─── COLUMN SELECTOR ──────────────────────────────────────────────────────────
+function ColumnSelector({ visible, onChange }) {
+  const t = useTheme()
+  const [open, setOpen] = useState(false)
+  const toggleCol = id => {
+    if (id === 'name') return // always shown
+    const next = visible.includes(id) ? visible.filter(c => c !== id) : [...visible, id]
+    onChange(next)
+  }
+  return (
+    <div style={{ position: 'relative' }}>
+      <Btn variant="ghost" small onClick={() => setOpen(p => !p)}>
+        ⊞ Columns ({visible.length})
+      </Btn>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
+          <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', background: t.surface, border: `1px solid ${t.border}`, borderRadius: 10, padding: 12, minWidth: 180, boxShadow: `0 8px 28px rgba(0,0,0,${t.dark ? .5 : .14})`, zIndex: 40 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: t.text3, textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 8 }}>Show / Hide Columns</div>
+            {ALL_COLUMNS.map(col => (
+              <div key={col.id} onClick={() => toggleCol(col.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, cursor: col.always ? 'default' : 'pointer', opacity: col.always ? .5 : 1 }}
+                onMouseOver={e => { if (!col.always) e.currentTarget.style.background = t.surface2 }}
+                onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}>
+                <div style={{ width: 16, height: 16, borderRadius: 4, background: visible.includes(col.id) ? '#6366f1' : t.surface2, border: `2px solid ${visible.includes(col.id) ? '#6366f1' : t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {visible.includes(col.id) && <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: 12, color: t.text, fontWeight: 500 }}>{col.label}</span>
+              </div>
+            ))}
+            <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 8, paddingTop: 8 }}>
+              <button onClick={() => { onChange(ALL_COLUMNS.map(c => c.id)); setOpen(false) }}
+                style={{ fontSize: 11, color: t.accentText, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>Show all</button>
+              <button onClick={() => { onChange(DEFAULT_COLS); setOpen(false) }}
+                style={{ fontSize: 11, color: t.text3, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 10 }}>Reset</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── VENDOR LOGO ──────────────────────────────────────────────────────────────
+function VendorLogo({ vendor, size = 28 }) {
+  const [err, setErr] = useState(false)
+  if (!vendor.logoUrl || err) {
+    // Fallback: colored initials circle
+    const initial = vendor.name?.[0]?.toUpperCase() || '?'
+    const colors  = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ec4899','#ef4444']
+    const bg      = colors[vendor.name?.charCodeAt(0) % colors.length] || '#6366f1'
+    return (
+      <div style={{ width: size, height: size, borderRadius: 6, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 700, color: '#fff', fontSize: size * .42 }}>
+        {initial}
+      </div>
+    )
+  }
+  return (
+    <img src={vendor.logoUrl} alt={vendor.name} onError={() => setErr(true)}
+      style={{ width: size, height: size, objectFit: 'contain', borderRadius: 6, background: '#fff', border: `1px solid #e2e8f0`, padding: 2, flexShrink: 0 }} />
+  )
+}
+
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 export function OverviewTab({ vendors, onSelect, onAdd }) {
   const t = useTheme()
   const { canWrite } = useAuth()
+  const [visibleCols, setVisibleCols] = useState(DEFAULT_COLS)
   const allAlerts = vendors.flatMap(v => (v.alerts || []).map(a => ({ ...a, vendor: v.name })))
   const counts = {
     total:  vendors.length,
@@ -16,6 +97,7 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
     high:   vendors.filter(v => v.riskScore < 50).length,
     crit:   allAlerts.filter(a => a.type === 'critical').length,
   }
+  const show = id => visibleCols.includes(id)
 
   return (
     <div className="page">
@@ -70,45 +152,87 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
 
       {/* Vendor table */}
       <Card style={{ overflow: 'hidden' }}>
-        <div style={{ padding: '13px 20px', borderBottom: `1px solid ${t.border}`, fontSize: 13, fontWeight: 700, color: t.text, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          All Vendors <span style={{ fontSize: 11, color: t.text3 }}>{vendors.length} total</span>
+        <div style={{ padding: '13px 20px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>All Vendors <span style={{ fontSize: 11, color: t.text3, fontWeight: 400 }}>{vendors.length} total</span></span>
+          <ColumnSelector visible={visibleCols} onChange={setVisibleCols} />
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: t.surface2 }}>
-              {['Vendor', 'Category', 'Tier', 'Status', 'Risk Score', 'DD Progress', ''].map(h => (
-                <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {vendors.map((v, i) => {
-              const ddP = Math.round(((v.ddCompleted?.length || 0) / DD_ITEMS.length) * 100)
-              return (
-                <tr key={v.id} style={{ borderTop: i > 0 ? `1px solid ${t.border2}` : 'none' }}
-                  onMouseOver={e => e.currentTarget.style.background = t.surface2}
-                  onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '12px 14px' }}><div style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{v.name}</div><a href={v.website} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: t.accent }}>{v.website}</a></td>
-                  <td style={{ padding: '12px 14px', fontSize: 12, color: t.text2, whiteSpace: 'nowrap' }}>{v.category}</td>
-                  <td style={{ padding: '12px 14px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: t.text2 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: tierDot(v.tier), display: 'inline-block', flexShrink: 0 }} />{v.tier}</span></td>
-                  <td style={{ padding: '12px 14px' }}><SBadge status={v.status} /></td>
-                  <td style={{ padding: '12px 14px' }}><ScorePill score={v.riskScore} /></td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 60, background: t.border, borderRadius: 999, height: 5 }}>
-                        <div style={{ width: `${ddP}%`, background: ddP === 100 ? t.successText : ddP > 50 ? t.warnText : t.dangerText, height: 5, borderRadius: 999 }} />
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: t.surface2 }}>
+                {/* Always: Vendor name */}
+                <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Vendor</th>
+                {show('category')  && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Category</th>}
+                {show('tier')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Tier</th>}
+                {show('status')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Status</th>}
+                {show('riskScore') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Risk Score</th>}
+                {show('dd')        && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>DD Progress</th>}
+                {show('contact')   && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact</th>}
+                {show('country')   && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Country</th>}
+                {show('jira')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Jira</th>}
+                {show('alerts')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Alerts</th>}
+                <th style={{ padding: '9px 14px', borderBottom: `1px solid ${t.border}` }} />
+              </tr>
+            </thead>
+            <tbody>
+              {vendors.map((v, i) => {
+                const ddP = Math.round(((v.ddCompleted?.length || 0) / DD_ITEMS.length) * 100)
+                const alertCount = v.alerts?.length || 0
+                return (
+                  <tr key={v.id} style={{ borderTop: i > 0 ? `1px solid ${t.border2}` : 'none' }}
+                    onMouseOver={e => e.currentTarget.style.background = t.surface2}
+                    onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+
+                    {/* Vendor name — always shown, includes logo */}
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <VendorLogo vendor={v} size={28} />
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{v.name}</div>
+                          <a href={v.website} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: t.accent }}>{v.website}</a>
+                        </div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: t.text2 }}>{ddP}%</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <button onClick={() => onSelect(v)} style={{ fontSize: 12, color: t.accentText, fontWeight: 600, background: t.accentBg, border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 6, fontFamily: 'inherit' }}>Open →</button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    </td>
+
+                    {show('category')  && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2, whiteSpace: 'nowrap' }}>{v.category}</td>}
+                    {show('tier')      && <td style={{ padding: '10px 14px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: t.text2 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: tierDot(v.tier), display: 'inline-block', flexShrink: 0 }} />{v.tier}</span></td>}
+                    {show('status')    && <td style={{ padding: '10px 14px' }}><SBadge status={v.status} /></td>}
+                    {show('riskScore') && <td style={{ padding: '10px 14px' }}><ScorePill score={v.riskScore} /></td>}
+                    {show('dd')        && (
+                      <td style={{ padding: '10px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 60, background: t.border, borderRadius: 999, height: 5 }}>
+                            <div style={{ width: `${ddP}%`, background: ddP === 100 ? '#16a34a' : ddP > 50 ? '#d97706' : '#dc2626', height: 5, borderRadius: 999 }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: t.text2 }}>{ddP}%</span>
+                        </div>
+                      </td>
+                    )}
+                    {show('contact')   && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.contact || '—'}</td>}
+                    {show('country')   && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.country || '—'}</td>}
+                    {show('jira')      && (
+                      <td style={{ padding: '10px 14px' }}>
+                        {v.jiraTicket
+                          ? <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4 }}>{v.jiraTicket}</span>
+                          : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
+                      </td>
+                    )}
+                    {show('alerts')    && (
+                      <td style={{ padding: '10px 14px' }}>
+                        {alertCount > 0
+                          ? <span style={{ fontSize: 11, fontWeight: 700, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '2px 8px', borderRadius: 999 }}>🔔 {alertCount}</span>
+                          : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
+                      </td>
+                    )}
+                    <td style={{ padding: '10px 14px' }}>
+                      <button onClick={() => onSelect(v)} style={{ fontSize: 12, color: '#4338ca', fontWeight: 600, background: '#eef2ff', border: 'none', cursor: 'pointer', padding: '5px 12px', borderRadius: 6, fontFamily: 'inherit' }}>Open →</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   )
@@ -118,9 +242,9 @@ export function OverviewTab({ vendors, onSelect, onAdd }) {
 export function DDTab({ vendors, onSelect }) {
   const t = useTheme()
   const stats = [
-    { l: 'Fully Complete', v: vendors.filter(v => v.ddCompleted?.length === DD_ITEMS.length).length, a: t.successText },
-    { l: 'In Progress',    v: vendors.filter(v => v.ddCompleted?.length > 0 && v.ddCompleted?.length < DD_ITEMS.length).length, a: t.warnText },
-    { l: 'Not Started',    v: vendors.filter(v => !v.ddCompleted?.length).length, a: t.dangerText },
+    { l: 'Fully Complete', v: vendors.filter(v => v.ddCompleted?.length === DD_ITEMS.length).length, a: '#16a34a' },
+    { l: 'In Progress',    v: vendors.filter(v => v.ddCompleted?.length > 0 && v.ddCompleted?.length < DD_ITEMS.length).length, a: '#d97706' },
+    { l: 'Not Started',    v: vendors.filter(v => !v.ddCompleted?.length).length, a: '#dc2626' },
   ]
   return (
     <div className="page">
@@ -139,28 +263,31 @@ export function DDTab({ vendors, onSelect }) {
         return (
           <Card key={v.id} style={{ padding: 20, marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{v.name}</div>
-                <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>{v.category} · {v.tier} Tier</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <VendorLogo vendor={v} size={32} />
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{v.name}</div>
+                  <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>{v.category} · {v.tier} Tier</div>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 11, color: t.text3, marginBottom: 2 }}>Completion</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: pct === 100 ? t.successText : pct > 50 ? t.warnText : t.dangerText }}>{pct}%</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: pct === 100 ? '#16a34a' : pct > 50 ? '#d97706' : '#dc2626' }}>{pct}%</div>
                 </div>
-                <button onClick={() => onSelect(v)} style={{ fontSize: 12, color: t.accentText, fontWeight: 600, background: t.accentBg, border: 'none', cursor: 'pointer', padding: '6px 14px', borderRadius: 6, fontFamily: 'inherit' }}>Manage →</button>
+                <button onClick={() => onSelect(v)} style={{ fontSize: 12, color: '#4338ca', fontWeight: 600, background: '#eef2ff', border: 'none', cursor: 'pointer', padding: '6px 14px', borderRadius: 6, fontFamily: 'inherit' }}>Manage →</button>
               </div>
             </div>
             <div style={{ background: t.border, borderRadius: 999, height: 6, marginBottom: 12 }}>
-              <div style={{ background: pct === 100 ? t.successText : pct > 50 ? t.warnText : t.dangerText, height: 6, borderRadius: 999, width: `${pct}%`, transition: 'width .4s' }} />
+              <div style={{ background: pct === 100 ? '#16a34a' : pct > 50 ? '#d97706' : '#dc2626', height: 6, borderRadius: 999, width: `${pct}%`, transition: 'width .4s' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
               {DD_ITEMS.map((item, i) => {
                 const d = v.ddCompleted?.includes(i)
                 return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 8px', borderRadius: 6, background: d ? t.successBg : t.surface2, border: `1px solid ${d ? t.successText + '33' : t.border}` }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 8px', borderRadius: 6, background: d ? '#f0fdf4' : t.surface2, border: `1px solid ${d ? '#16a34a33' : t.border}` }}>
                     <span style={{ fontSize: 12, flexShrink: 0 }}>{d ? '✅' : '⬜'}</span>
-                    <span style={{ fontSize: 10, color: d ? t.successText : t.text2, fontWeight: d ? 600 : 400, lineHeight: 1.3 }}>{item}</span>
+                    <span style={{ fontSize: 10, color: d ? '#16a34a' : t.text2, fontWeight: d ? 600 : 400, lineHeight: 1.3 }}>{item}</span>
                   </div>
                 )
               })}
@@ -182,15 +309,18 @@ export function RATab({ vendors, onSelect }) {
         {vendors.map(v => (
           <Card key={v.id} style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{v.name}</div>
-                <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>{v.tier} Tier · {v.category}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <VendorLogo vendor={v} size={32} />
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{v.name}</div>
+                  <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>{v.tier} Tier · {v.category}</div>
+                </div>
               </div>
               <ScorePill score={v.riskScore} />
             </div>
             <RadarChart scores={v.raScores} size={200} />
             <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => onSelect(v)} style={{ fontSize: 12, color: t.accentText, fontWeight: 600, background: t.accentBg, border: 'none', cursor: 'pointer', padding: '5px 14px', borderRadius: 6, fontFamily: 'inherit' }}>Open Assessment →</button>
+              <button onClick={() => onSelect(v)} style={{ fontSize: 12, color: '#4338ca', fontWeight: 600, background: '#eef2ff', border: 'none', cursor: 'pointer', padding: '5px 14px', borderRadius: 6, fontFamily: 'inherit' }}>Open Assessment →</button>
             </div>
           </Card>
         ))}
@@ -218,11 +348,14 @@ export function MonitoringTab({ vendors, onSelect }) {
         {vendors.map(v => (
           <Card key={v.id} style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{v.name}</div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}><SBadge status={v.status} /><ScorePill score={v.riskScore} /></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <VendorLogo vendor={v} size={30} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{v.name}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}><SBadge status={v.status} /><ScorePill score={v.riskScore} /></div>
+                </div>
               </div>
-              <button onClick={() => onSelect(v)} style={{ fontSize: 11, color: t.accentText, fontWeight: 600, background: t.accentBg, border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontFamily: 'inherit' }}>Open →</button>
+              <button onClick={() => onSelect(v)} style={{ fontSize: 11, color: '#4338ca', fontWeight: 600, background: '#eef2ff', border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 6, fontFamily: 'inherit' }}>Open →</button>
             </div>
             <MiniLine data={v.monData} color={riskColor(v.riskScore)} />
           </Card>

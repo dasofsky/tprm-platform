@@ -3,6 +3,7 @@ import { useTheme, useAuth } from '../context'
 import { Card, Btn, Inp, Sel, Toggle, TabBar, SBadge, RoleBadge, Avatar, SectionHeader } from './ui'
 import { roleStyle, fmtDate } from '../utils'
 import { DEPARTMENTS } from '../data'
+import { fetchCategories, saveCategories } from '../db'
 
 // ─── USER MODAL ───────────────────────────────────────────────────────────────
 function UserModal({ user, onClose, onSave, meId }) {
@@ -116,6 +117,35 @@ export function SettingsPage() {
   const [search, setSearch]   = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [pwModal,   setPwModal]   = useState(null)  // {user} | null
+  const [categories,  setCategories]  = useState([])
+  const [catLoading,  setCatLoading]  = useState(true)
+  const [newCat,      setNewCat]      = useState('')
+  const [catSaving,   setCatSaving]   = useState(false)
+  const [catMsg,      setCatMsg]      = useState(null)
+
+  useEffect(() => {
+    fetchCategories().then(cats => { setCategories(cats); setCatLoading(false) }).catch(() => setCatLoading(false))
+  }, [])
+
+  const handleAddCat = () => {
+    const v = newCat.trim()
+    if (!v || categories.includes(v)) return
+    setCategories(p => [...p, v]); setNewCat('')
+  }
+  const handleRemoveCat = name => setCategories(p => p.filter(c => c !== name))
+  const handleMoveCat = (i, dir) => {
+    const next = [...categories]
+    const swap = i + dir
+    if (swap < 0 || swap >= next.length) return
+    ;[next[i], next[swap]] = [next[swap], next[i]]
+    setCategories(next)
+  }
+  const handleSaveCategories = async () => {
+    setCatSaving(true); setCatMsg(null)
+    try { await saveCategories(categories); setCatMsg('Saved!') }
+    catch { setCatMsg('Save failed') }
+    finally { setCatSaving(false); setTimeout(() => setCatMsg(null), 2500) }
+  }
   const [pwValue,   setPwValue]   = useState('')
   const [pwConfirm, setPwConfirm] = useState('')
   const [pwLoading, setPwLoading] = useState(false)
@@ -166,6 +196,7 @@ export function SettingsPage() {
     ...(isAdmin ? [['users', '👥 User Management']] : []),
     ['appearance', '🎨 Appearance'],
     ['profile', '👤 My Profile'],
+    ...(isAdmin ? [['categories', '🗂 Categories']] : []),
   ]
 
   return (
@@ -313,6 +344,45 @@ export function SettingsPage() {
                 ))}
               </div>
             </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── CATEGORIES ── */}
+      {stab === 'categories' && isAdmin && (
+        <div style={{ maxWidth: 560 }}>
+          <Card style={{ padding: 24 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: t.text, marginBottom: 4 }}>Vendor Categories</div>
+            <div style={{ fontSize: 12, color: t.text2, marginBottom: 18 }}>Add, remove or reorder the categories shown in the vendor dropdowns.</div>
+
+            {catMsg && <div style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, marginBottom: 12, background: catMsg === 'Saved!' ? t.successBg : t.dangerBg, color: catMsg === 'Saved!' ? t.successText : t.dangerText }}>{catMsg === 'Saved!' ? '✅' : '⚠️'} {catMsg}</div>}
+
+            {catLoading
+              ? <div style={{ fontSize: 12, color: t.text3 }}>Loading...</div>
+              : <>
+                  <div style={{ marginBottom: 14 }}>
+                    {categories.map((cat, i) => (
+                      <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: t.surface2, border: `1px solid ${t.border}`, borderRadius: 8, marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, color: t.text, flex: 1, fontWeight: 500 }}>{cat}</span>
+                        <button onClick={() => handleMoveCat(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: t.text3, fontSize: 14, opacity: i === 0 ? .3 : 1, padding: '0 4px' }}>↑</button>
+                        <button onClick={() => handleMoveCat(i, 1)} disabled={i === categories.length - 1} style={{ background: 'none', border: 'none', cursor: i === categories.length - 1 ? 'default' : 'pointer', color: t.text3, fontSize: 14, opacity: i === categories.length - 1 ? .3 : 1, padding: '0 4px' }}>↓</button>
+                        <button onClick={() => handleRemoveCat(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.dangerText, fontSize: 14, padding: '0 4px', fontWeight: 700 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                    <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddCat()}
+                      placeholder="New category name..."
+                      style={{ flex: 1, padding: '9px 12px', border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 13, outline: 'none', color: t.text, background: t.inputBg, fontFamily: 'inherit' }} />
+                    <Btn variant="ghost" onClick={handleAddCat} disabled={!newCat.trim()}>+ Add</Btn>
+                  </div>
+
+                  <Btn variant="accent" onClick={handleSaveCategories} disabled={catSaving}>
+                    {catSaving ? 'Saving...' : '💾 Save Categories'}
+                  </Btn>
+                </>
+            }
           </Card>
         </div>
       )}

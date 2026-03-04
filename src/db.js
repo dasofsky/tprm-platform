@@ -56,6 +56,8 @@ function mapVendorFromDB(row) {
     research:    row.research,
     documents:   row.documents   || [],
     monData:     row.mon_data    || [],
+    jiraTicket:  row.jira_ticket,
+    logoUrl:     row.logo_url,
   }
 }
 
@@ -76,6 +78,8 @@ function mapVendorToDB(v) {
   if (v.research    !== undefined) out.research     = v.research
   if (v.documents   !== undefined) out.documents    = v.documents
   if (v.monData     !== undefined) out.mon_data     = v.monData
+  if (v.jiraTicket  !== undefined) out.jira_ticket  = v.jiraTicket
+  if (v.logoUrl     !== undefined) out.logo_url     = v.logoUrl
   out.updated_at = new Date().toISOString()
   return out
 }
@@ -211,5 +215,24 @@ export async function createComment(comment) {
 
 export async function deleteComment(id) {
   const { error } = await supabase.from('comments').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── CATEGORIES ───────────────────────────────────────────────────────────────
+
+export async function fetchCategories() {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('sort_order')
+  if (error) throw error
+  return data.map(c => c.name)
+}
+
+export async function saveCategories(names) {
+  // Full replace: delete all then reinsert
+  await supabase.from('categories').delete().neq('id', 0)
+  const rows = names.map((name, i) => ({ name, sort_order: i }))
+  const { error } = await supabase.from('categories').insert(rows)
   if (error) throw error
 }
