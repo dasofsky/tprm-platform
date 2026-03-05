@@ -53,11 +53,51 @@ export async function exportVendorPDF(vendor) {
   doc.text(vendor.name, margin, y)
   y += 7
 
+  // Build the subtitle line
+  const approvalStatus = vendor.approval?.status && vendor.approval.status !== 'N/A'
+    ? vendor.approval.status
+    : null
+  const rawJira = vendor.jiraTicket || ''
+  const jiraFormatted = rawJira
+    ? 'NPW-' + rawJira.replace(/^NPW-?/i, '').trim()
+    : null
+
+  const subtitleParts = [
+    vendor.category,
+    vendor.tier ? `${vendor.tier} Tier` : null,
+    vendor.status,
+    vendor.website,
+    jiraFormatted,
+    approvalStatus,
+  ].filter(Boolean)
+
+  // Render the subtitle — split into two lines if too long for the page
+  const subtitleText = subtitleParts.join('  ·  ')
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...GRAY)
-  doc.text(`${vendor.category}  ·  ${vendor.tier} Tier  ·  ${vendor.status}  ·  ${vendor.website}`, margin, y)
-  y += 10
+
+  const maxWidth = W - margin * 2
+  const subtitleLines = doc.splitTextToSize(subtitleText, maxWidth)
+  doc.text(subtitleLines, margin, y)
+  y += subtitleLines.length * 5 + 2
+
+  // If approval status present, draw a small colored badge beside it
+  if (approvalStatus) {
+    const approvalColors = {
+      'Approved':                     [22, 163, 74],
+      'Approved with Conditions':     [217, 119, 6],
+      'Approved with Recommendations':[217, 119, 6],
+      'Denied':                       [220, 38, 38],
+    }
+    const badgeRgb = approvalColors[approvalStatus] || GRAY
+    // Draw a subtle colored line under the subtitle to indicate approval state
+    doc.setDrawColor(...badgeRgb)
+    doc.setLineWidth(1.5)
+    doc.line(margin, y - 1, margin + 60, y - 1)
+    doc.setLineWidth(0.4)
+    y += 2
+  }
 
   // Divider
   doc.setDrawColor(226, 232, 240)
