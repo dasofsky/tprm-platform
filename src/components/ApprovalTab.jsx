@@ -23,7 +23,12 @@ const FIELD_DEFAULTS = {
 
 function generateText(fields, vendorName, jiraTicket) {
   const lines = []
-  const jiraRef = jiraTicket ? ` (${jiraTicket})` : ''
+  const formatJira = (t) => {
+    if (!t) return ''
+    const clean = t.replace(/^NPW-/i, '').replace(/^NPW/i, '')
+    return `NPW-${clean}`
+  }
+  const jiraRef = jiraTicket ? ` (${formatJira(jiraTicket)})` : ''
 
   // ── 1. Status ──────────────────────────────────────────────────────────────
   if (fields.status !== 'N/A') {
@@ -369,7 +374,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: t.text }}>Generated Jira Post</div>
-              <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>Edit freely before copying to Jira{vendor.jiraTicket ? ` (${vendor.jiraTicket})` : ''}</div>
+              <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>Edit freely before copying to Jira{vendor.jiraTicket ? ` (NPW-${vendor.jiraTicket.replace(/^NPW-?/i,'')})` : ''}</div>
             </div>
             <button onClick={handleCopy} disabled={!fields.generatedText}
               style={{ fontSize: 12, fontWeight: 700, color: copied ? t.successText : t.accentText, background: copied ? t.successBg : t.accentBg, border: `1px solid ${copied ? t.successText : t.accent}44`, borderRadius: 8, padding: '6px 16px', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s' }}>

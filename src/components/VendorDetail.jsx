@@ -19,6 +19,8 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
   const [ddDone, setDdDone] = useState(vendor.ddCompleted || [])
   const [exporting, setExporting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [scoreReasons, setScoreReasons]   = useState(vendor.scoreReasons || {})
+  const [reasonsLoading, setReasonsLoading] = useState(false)
 
   const updateScore = (key, val) => {
     const ns = { ...scores, [key]: Number(val) }
@@ -34,7 +36,31 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
     onUpdate({ ...vendor, ddCompleted: nd })
   }
 
-  const handleExport = async () => {
+  const handleExplainScores = async () => {
+    setReasonsLoading(true)
+    try {
+      const res = await fetch('/api/explain-scores', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendorName:  vendor.name,
+          category:    vendor.category,
+          raScores:    scores,
+          research:    vendor.research,
+        }),
+      })
+      const data = await res.json()
+      if (data.reasons) {
+        setScoreReasons(data.reasons)
+        // Persist to vendor
+        const { supabase } = await import('../supabase')
+        await supabase.from('vendors').update({ score_reasons: data.reasons }).eq('id', vendor.id)
+      }
+    } catch (err) { console.error('Explain scores failed', err) }
+    finally { setReasonsLoading(false) }
+  }
+
+    const handleExport = async () => {
     setExporting(true)
     try { await exportVendorPDF(vendor) }
     finally { setExporting(false) }
@@ -99,23 +125,38 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
       {tab === 'assessment' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
           <Card style={{ padding: 22 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: t.text, marginBottom: 18 }}>Risk Score Assessment</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: t.text }}>Risk Score Assessment</div>
+              <button onClick={handleExplainScores} disabled={reasonsLoading}
+                style={{ fontSize: 11, fontWeight: 600, color: t.accentText, background: t.accentBg, border: `1px solid ${t.accent}44`, borderRadius: 6, padding: '5px 12px', cursor: reasonsLoading ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+                {reasonsLoading ? '⏳ Analyzing...' : '✨ Explain Scores'}
+              </button>
+            </div>
             {RA_DIMS.map(d => {
               const val = scores[d.key] || 0
-              const c = riskColor(val)
+              const col = riskColor(val)
+              const reason = scoreReasons[d.key]
               return (
-                <div key={d.key} style={{ marginBottom: 20 }}>
+                <div key={d.key} style={{ marginBottom: 22 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <div>
                       <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{d.label}</span>
                       <span style={{ fontSize: 11, color: t.text3, marginLeft: 8 }}>{d.desc}</span>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: c }}>{val}</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: col }}>{val}</span>
                   </div>
                   {canWrite
-                    ? <input type="range" min={0} max={100} value={val} onChange={e => updateScore(d.key, e.target.value)} style={{ width: '100%', accentColor: c, cursor: 'pointer' }} />
-                    : <div style={{ background: t.border, borderRadius: 999, height: 7 }}><div style={{ width: `${val}%`, background: c, height: 7, borderRadius: 999 }} /></div>
+                    ? <input type="range" min={0} max={100} value={val} onChange={e => updateScore(d.key, e.target.value)} style={{ width: '100%', accentColor: col, cursor: 'pointer' }} />
+                    : <div style={{ background: t.border, borderRadius: 999, height: 7 }}><div style={{ width: `${val}%`, background: col, height: 7, borderRadius: 999 }} /></div>
                   }
+                  {reason && (
+                    <p style={{ fontSize: 12, color: t.text2, lineHeight: 1.65, margin: '8px 0 0', padding: '8px 12px', background: t.surface2, borderRadius: 7, borderLeft: `3px solid ${col}` }}>
+                      {reason}
+                    </p>
+                  )}
+                  {!reason && reasonsLoading && (
+                    <div style={{ marginTop: 8, height: 14, background: t.surface2, borderRadius: 6, animation: 'pulse 1.5s infinite' }} />
+                  )}
                 </div>
               )
             })}

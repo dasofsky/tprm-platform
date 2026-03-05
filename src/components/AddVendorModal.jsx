@@ -7,7 +7,7 @@ import { fetchCategories } from '../db'
 export function AddVendorModal({ onClose, onAdd }) {
   const t = useTheme()
   const [form, setForm] = useState({
-    name: '', website: '', category: '', tier: 'High',
+    name: '', website: '', category: '', tier: 'High',  // always High until AI assessment
     contact: '', contactEmail: '', jiraTicket: ''
   })
   const [errors,     setErrors]     = useState({})
@@ -127,15 +127,9 @@ export function AddVendorModal({ onClose, onAdd }) {
           </div>
 
           {/* Category + Tier */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.text2, display: 'block', marginBottom: 4 }}>Category</label>
-              <Sel value={form.category} onChange={e => set('category', e.target.value)} options={categories.length ? categories : ['Loading...']} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: t.text2, display: 'block', marginBottom: 4 }}>Risk Tier</label>
-              <Sel value={form.tier} onChange={e => set('tier', e.target.value)} options={TIERS} />
-            </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: t.text2, display: 'block', marginBottom: 4 }}>Category</label>
+            <Sel value={form.category} onChange={e => set('category', e.target.value)} options={categories.length ? categories : ['Loading...']} />
           </div>
 
           {/* Jira Ticket */}
