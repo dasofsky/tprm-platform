@@ -6,7 +6,8 @@ import { IntelligencePanel } from './IntelligencePanel'
 import { DocumentsTab } from './DocumentsTab'
 import { CommentsTab } from './CommentsTab'
 import { exportVendorPDF } from '../pdfExport'
-import { AssignedTo } from './AssignedTo'
+import { AssignedTo }   from './AssignedTo'
+import { ApprovalTab }  from './ApprovalTab'
 import { riskColor, riskLabel } from '../utils'
 import { RA_DIMS, DD_ITEMS } from '../data'
 
@@ -42,6 +43,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
   const ddPct = Math.round((ddDone.length / DD_ITEMS.length) * 100)
 
   const tabs = [
+    ['approval',     '✅ Approval'],
     ['intelligence', '🔍 Intelligence'],
     ['assessment',   '📊 Assessment'],
     ['dd',           `✅ Due Diligence (${ddPct}%)`],
@@ -91,6 +93,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
 
       <TabBar tabs={tabs} active={tab} onChange={setTab} style={{ marginBottom: 20 }} />
 
+      {tab === 'approval'     && <ApprovalTab vendor={vendor} onUpdate={onUpdate} />}
       {tab === 'intelligence' && <IntelligencePanel vendor={vendor} onUpdate={onUpdate} />}
 
       {tab === 'assessment' && (
