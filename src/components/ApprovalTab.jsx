@@ -7,6 +7,7 @@ const STATUSES   = ['N/A', 'Approved', 'Approved with Conditions', 'Approved wit
 const MFA_OPTS   = ['N/A', 'Required', 'Suggested']
 const WHITELIST  = ['N/A', 'Approved', 'Approved Except']
 const VLANS      = ['N/A', 'VLAN 203', 'VLAN 204', 'VLAN 206', 'VLAN 204 with PSK 100', 'VLAN 350']
+const DPA_OPTS   = ['N/A', 'Required', 'Suggested']
 
 const FIELD_DEFAULTS = {
   status:           'N/A',
@@ -16,6 +17,7 @@ const FIELD_DEFAULTS = {
   whitelistExcept:  '',
   vlan:             'N/A',
   pilot:            false,
+  dpa:              'N/A',
   additionalNotes:  '',
   generatedText:    '',
   savedAt:          null,
@@ -54,6 +56,17 @@ function generateText(fields, vendorName, jiraTicket) {
   } else if (fields.mfa === 'Suggested') {
     lines.push('*Multi-Factor Authentication (MFA)*')
     lines.push('It is strongly recommended that this solution be implemented with MFA in place. While not a hard requirement at this stage, enabling MFA significantly reduces the risk of unauthorized access and aligns with Sonic\'s security best practices. The implementation team should evaluate enabling MFA as part of the rollout plan.')
+    lines.push('')
+  }
+
+  // ── 2b. DPA ──────────────────────────────────────────────────────────────
+  if (fields.dpa === 'Required') {
+    lines.push('*Data Processing Agreement (DPA)*')
+    lines.push('A Data Processing Agreement (DPA) must be in place before this intake can be approved. The vendor must provide a fully executed DPA that meets Sonic's data protection requirements prior to any data being shared or processed.')
+    lines.push('')
+  } else if (fields.dpa === 'Suggested') {
+    lines.push('*Data Processing Agreement (DPA)*')
+    lines.push('It is suggested that a Data Processing Agreement (DPA) be in place for this vendor. Given the nature of the data involved, establishing a DPA will help ensure both parties understand their obligations regarding data handling, processing, and protection.')
     lines.push('')
   }
 
@@ -170,7 +183,7 @@ export function ApprovalTab({ vendor, onUpdate }) {
   useEffect(() => {
     const text = generateText(fields, vendor.name, vendor.jiraTicket)
     setFields(p => ({ ...p, generatedText: text }))
-  }, [fields.status, fields.mfa, fields.passwordHygiene, fields.whitelist, fields.whitelistExcept, fields.vlan, fields.pilot, fields.additionalNotes])
+  }, [fields.status, fields.mfa, fields.dpa, fields.passwordHygiene, fields.whitelist, fields.whitelistExcept, fields.vlan, fields.pilot, fields.additionalNotes])
 
   const handleSave = async () => {
     setSaving(true)
@@ -290,8 +303,13 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
             <Select value={fields.mfa} onChange={v => set('mfa', v)} options={MFA_OPTS} />
           </Field>
 
+          {/* 2b. DPA */}
+          <Field label="3. Data Processing Agreement" hint="(DPA)">
+            <Select value={fields.dpa} onChange={v => set('dpa', v)} options={DPA_OPTS} />
+          </Field>
+
           {/* 3. Password Hygiene */}
-          <Field label="3. Password Hygiene">
+          <Field label="4. Password Hygiene">
             <CheckRow
               label="Include Password Hygiene Requirements"
               desc="Adds passphrase policy, no reuse, and individual account requirements"
@@ -303,7 +321,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           <div style={{ height: 1, background: t.border, margin: '16px 0' }} />
 
           {/* 4. Whitelist */}
-          <Field label="4. URL / Link Whitelist Approval">
+          <Field label="5. URL / Link Whitelist Approval">
             <Select value={fields.whitelist} onChange={v => set('whitelist', v)} options={WHITELIST} />
             {fields.whitelist === 'Approved Except' && (
               <div style={{ marginTop: 8 }}>
@@ -317,7 +335,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           </Field>
 
           {/* 5. VLAN */}
-          <Field label="5. Network / VLAN Assignment">
+          <Field label="6. Network / VLAN Assignment">
             <Select value={fields.vlan} onChange={v => set('vlan', v)} options={VLANS} />
             {fields.vlan === 'VLAN 203' && (
               <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: t.warnBg, border: `1px solid ${t.warnText}44`, fontSize: 11, color: t.warnText }}>
@@ -329,7 +347,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           <div style={{ height: 1, background: t.border, margin: '16px 0' }} />
 
           {/* 7. Pilot */}
-          <Field label="6. Pilot Deployment">
+          <Field label="7. Pilot Deployment">
             <CheckRow
               label="This is a Pilot Deployment"
               desc="Marks as pilot only — full deployment requires resubmission"
@@ -339,7 +357,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           </Field>
 
           {/* 6. Additional Notes */}
-          <Field label="7. Additional Notes" hint="(optional)">
+          <Field label="8. Additional Notes" hint="(optional)">
             <textarea
               value={fields.additionalNotes}
               onChange={e => set('additionalNotes', e.target.value)}
