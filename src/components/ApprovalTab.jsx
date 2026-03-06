@@ -8,6 +8,7 @@ const MFA_OPTS   = ['N/A', 'Required', 'Suggested']
 const WHITELIST  = ['N/A', 'Approved', 'Approved Except']
 const VLANS      = ['N/A', 'VLAN 203', 'VLAN 204', 'VLAN 206', 'VLAN 204 with PSK 100', 'VLAN 350']
 const DPA_OPTS   = ['N/A', 'Required', 'Suggested']
+const SSO_OPTS   = ['N/A', 'Required', 'Suggested']
 
 const FIELD_DEFAULTS = {
   status:           'N/A',
@@ -18,6 +19,8 @@ const FIELD_DEFAULTS = {
   vlan:             'N/A',
   pilot:            false,
   dpa:              'N/A',
+  sso:              'N/A',
+  soc2:             false,
   additionalNotes:  '',
   generatedText:    '',
   savedAt:          null,
@@ -67,6 +70,24 @@ function generateText(fields, vendorName, jiraTicket) {
   } else if (fields.dpa === 'Suggested') {
     lines.push('*Data Processing Agreement (DPA)*')
     lines.push('It is suggested that a Data Processing Agreement (DPA) be in place for this vendor. Given the nature of the data involved, establishing a DPA will help ensure both parties understand their obligations regarding data handling, processing, and protection.')
+    lines.push('')
+  }
+
+  // ── SSO ─────────────────────────────────────────────────────────────────
+  if (fields.sso === 'Required') {
+    lines.push('*Single Sign-On (SSO)*')
+    lines.push("SSO implementation is required before the vendor\'s solution goes live. Please work with the Cloud team to ensure SSO is configured and tested prior to deployment. Access without SSO will not be permitted.")
+    lines.push('')
+  } else if (fields.sso === 'Suggested') {
+    lines.push('*Single Sign-On (SSO)*')
+    lines.push("SSO implementation is strongly suggested before the vendor\'s solution goes live. Please work with the Cloud team to evaluate SSO integration as part of the deployment plan. Enabling SSO improves access control and simplifies user lifecycle management.")
+    lines.push('')
+  }
+
+  // ── SOC2 ─────────────────────────────────────────────────────────────────
+  if (fields.soc2) {
+    lines.push('*SOC 2 Report Requirement*')
+    lines.push('The vendor must present a current SOC 2 Type II report before this intake can move forward. The report must be dated within the last 12 months. Please submit the report to the TPRM team for review prior to proceeding to the next stage of the intake process.')
     lines.push('')
   }
 
@@ -183,7 +204,7 @@ export function ApprovalTab({ vendor, onUpdate }) {
   useEffect(() => {
     const text = generateText(fields, vendor.name, vendor.jiraTicket)
     setFields(p => ({ ...p, generatedText: text }))
-  }, [fields.status, fields.mfa, fields.dpa, fields.passwordHygiene, fields.whitelist, fields.whitelistExcept, fields.vlan, fields.pilot, fields.additionalNotes])
+  }, [fields.status, fields.mfa, fields.dpa, fields.sso, fields.soc2, fields.passwordHygiene, fields.whitelist, fields.whitelistExcept, fields.vlan, fields.pilot, fields.additionalNotes])
 
   const handleSave = async () => {
     setSaving(true)
@@ -309,7 +330,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           </Field>
 
           {/* 3. Password Hygiene */}
-          <Field label="4. Password Hygiene">
+          <Field label="6. Password Hygiene">
             <CheckRow
               label="Include Password Hygiene Requirements"
               desc="Adds passphrase policy, no reuse, and individual account requirements"
@@ -321,7 +342,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           <div style={{ height: 1, background: t.border, margin: '16px 0' }} />
 
           {/* 4. Whitelist */}
-          <Field label="5. URL / Link Whitelist Approval">
+          <Field label="7. URL / Link Whitelist Approval">
             <Select value={fields.whitelist} onChange={v => set('whitelist', v)} options={WHITELIST} />
             {fields.whitelist === 'Approved Except' && (
               <div style={{ marginTop: 8 }}>
@@ -335,7 +356,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           </Field>
 
           {/* 5. VLAN */}
-          <Field label="6. Network / VLAN Assignment">
+          <Field label="8. Network / VLAN Assignment">
             <Select value={fields.vlan} onChange={v => set('vlan', v)} options={VLANS} />
             {fields.vlan === 'VLAN 203' && (
               <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: t.warnBg, border: `1px solid ${t.warnText}44`, fontSize: 11, color: t.warnText }}>
@@ -347,7 +368,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           <div style={{ height: 1, background: t.border, margin: '16px 0' }} />
 
           {/* 7. Pilot */}
-          <Field label="7. Pilot Deployment">
+          <Field label="9. Pilot Deployment">
             <CheckRow
               label="This is a Pilot Deployment"
               desc="Marks as pilot only — full deployment requires resubmission"
@@ -357,7 +378,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           </Field>
 
           {/* 6. Additional Notes */}
-          <Field label="8. Additional Notes" hint="(optional)">
+          <Field label="10. Additional Notes" hint="(optional)">
             <textarea
               value={fields.additionalNotes}
               onChange={e => set('additionalNotes', e.target.value)}

@@ -514,6 +514,8 @@ export async function exportVendorPDF(vendor, { showDD = true } = {}) {
     const approvalRows = [
       { label: 'MFA',               value: appr.mfa,        show: appr.mfa && appr.mfa !== 'N/A' },
       { label: 'DPA',               value: appr.dpa,        show: appr.dpa && appr.dpa !== 'N/A' },
+      { label: 'SSO',               value: appr.sso,        show: appr.sso && appr.sso !== 'N/A' },
+      { label: 'SOC 2 Required',    value: 'Yes',           show: appr.soc2 },
       { label: 'Password Hygiene',  value: 'Required',      show: appr.passwordHygiene },
       { label: 'URL Whitelist',     value: appr.whitelist,  show: appr.whitelist && appr.whitelist !== 'N/A' },
       { label: 'VLAN',              value: appr.vlan,       show: appr.vlan && appr.vlan !== 'N/A' },

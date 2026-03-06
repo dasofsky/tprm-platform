@@ -21,6 +21,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [scoreReasons, setScoreReasons]   = useState(vendor.scoreReasons || {})
   const [reasonsLoading, setReasonsLoading] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
 
   const updateScore = (key, val) => {
     const ns = { ...scores, [key]: Number(val) }
@@ -98,7 +99,29 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 21, fontWeight: 800, color: t.text, letterSpacing: '-.025em' }}>{vendor.name}</div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5, flexWrap: 'wrap' }}>
-            <SBadge status={vendor.status} />
+            {/* Clickable status dropdown */}
+            <div style={{ position: 'relative' }}>
+              <div onClick={() => canWrite && setStatusOpen(p => !p)}
+                style={{ cursor: canWrite ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <SBadge status={vendor.status} />
+                {canWrite && <span style={{ fontSize: 9, color: t.text3, marginLeft: 1 }}>▾</span>}
+              </div>
+              {statusOpen && (
+                <>
+                  <div onClick={() => setStatusOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+                  <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: t.surface, border: `1px solid ${t.border}`, borderRadius: 10, padding: 6, minWidth: 180, boxShadow: `0 8px 28px rgba(0,0,0,${t.dark ? .5 : .14})`, zIndex: 60 }}>
+                    {['Active', 'Onboarding', 'Under Review', 'Suspended', 'Offboarded'].map(s => (
+                      <div key={s} onClick={() => { onUpdate({ ...vendor, status: s }); setStatusOpen(false) }}
+                        style={{ padding: '7px 10px', borderRadius: 7, cursor: 'pointer', background: vendor.status === s ? t.surface2 : 'transparent' }}
+                        onMouseOver={e => e.currentTarget.style.background = t.surface2}
+                        onMouseOut={e => e.currentTarget.style.background = vendor.status === s ? t.surface2 : 'transparent'}>
+                        <SBadge status={s} />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             <span style={{ fontSize: 12, color: t.text2 }}>{vendor.category}</span>
             <span style={{ fontSize: 12, color: t.text2 }}>·</span>
             <a href={vendor.website} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: t.accent }}>{vendor.website}</a>
