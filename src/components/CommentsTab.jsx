@@ -7,7 +7,7 @@ const SECTIONS = [
   { v: 'general',      l: 'General' },
   { v: 'assessment',   l: 'Risk Assessment' },
   { v: 'dd',           l: 'Due Diligence' },
-  { v: 'intelligence', l: 'Intelligence' },
+  { v: 'intelligence', l: 'Intelligence ✨' },
   { v: 'alerts',       l: 'Alerts' },
 ]
 
@@ -23,15 +23,17 @@ const fmtRelative = d => {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function CommentsTab({ vendor }) {
+export function CommentsTab({ vendor, onScoreUpdate }) {
   const t = useTheme()
   const { currentUser, canWrite } = useAuth()
-  const [comments,  setComments]  = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [body,      setBody]      = useState('')
-  const [section,   setSection]   = useState('general')
-  const [submitting, setSubmitting] = useState(false)
-  const [filter,    setFilter]    = useState('all')
+  const [comments,   setComments]   = useState([])
+  const [loading,    setLoading]    = useState(true)
+  const [body,       setBody]       = useState('')
+  const [section,    setSection]    = useState('general')
+  const [submitting, setSubmitting]  = useState(false)
+  const [filter,     setFilter]     = useState('all')
+  const [scoreNotice, setScoreNotice] = useState(null)  // { summary, impacts } | null
+  const [analyzing,   setAnalyzing]   = useState(false)
 
   useEffect(() => { loadComments() }, [vendor.id])
 
@@ -60,6 +62,49 @@ export function CommentsTab({ vendor }) {
       })
       setComments(p => [comment, ...p])
       setBody('')
+
+      // If tagged as intelligence, analyze for risk score impacts
+      if (section === 'intelligence' && onScoreUpdate) {
+        setAnalyzing(true)
+        try {
+          const res = await fetch('/api/analyze-comment', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              vendorName:    vendor.name,
+              category:      vendor.category,
+              currentScores: vendor.raScores,
+              commentBody:   comment.body,
+            }),
+          })
+          const analysis = await res.json()
+
+          if (analysis.relevant && analysis.scoreImpact) {
+            const newScores = { ...vendor.raScores }
+            let changed = false
+            Object.entries(analysis.scoreImpact).forEach(([k, v]) => {
+              const delta = Number(v) || 0
+              if (delta !== 0 && newScores[k] !== undefined) {
+                newScores[k] = Math.min(100, Math.max(0, newScores[k] + delta))
+                changed = true
+              }
+            })
+            if (changed) {
+              const avg = Math.round(Object.values(newScores).reduce((a, b) => a + b, 0) / 5)
+              onScoreUpdate({ ...vendor, raScores: newScores, riskScore: avg })
+              setScoreNotice({ summary: analysis.summary, impacts: analysis.scoreImpact })
+              setTimeout(() => setScoreNotice(null), 8000)
+            } else {
+              setScoreNotice({ summary: analysis.summary, impacts: null })
+              setTimeout(() => setScoreNotice(null), 5000)
+            }
+          }
+        } catch (err) {
+          console.error('Comment analysis failed', err)
+        } finally {
+          setAnalyzing(false)
+        }
+      }
     } catch (err) {
       console.error('Failed to post comment', err)
     } finally {

@@ -224,7 +224,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
       )}
 
       {tab === 'documents' && <DocumentsTab vendor={vendor} onScoreUpdate={onUpdate} />}
-      {tab === 'comments'  && <CommentsTab  vendor={vendor} />}
+      {tab === 'comments'  && <CommentsTab  vendor={vendor} onScoreUpdate={onUpdate} />}
 
       {tab === 'alerts' && (
         !vendor.alerts?.length
