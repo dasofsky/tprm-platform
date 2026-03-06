@@ -62,7 +62,7 @@ function generateText(fields, vendorName, jiraTicket) {
   // ── 2b. DPA ──────────────────────────────────────────────────────────────
   if (fields.dpa === 'Required') {
     lines.push('*Data Processing Agreement (DPA)*')
-    lines.push('A Data Processing Agreement (DPA) must be in place before this intake can be approved. The vendor must provide a fully executed DPA that meets Sonic's data protection requirements prior to any data being shared or processed.')
+    lines.push('A Data Processing Agreement (DPA) must be in place before this intake can be approved. The vendor must provide a fully executed DPA that meets Sonic\'s data protection requirements prior to any data being shared or processed.')
     lines.push('')
   } else if (fields.dpa === 'Suggested') {
     lines.push('*Data Processing Agreement (DPA)*')
