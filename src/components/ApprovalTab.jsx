@@ -329,6 +329,21 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
             <Select value={fields.dpa} onChange={v => set('dpa', v)} options={DPA_OPTS} />
           </Field>
 
+          {/* SSO */}
+          <Field label="4. Single Sign-On" hint="(SSO)">
+            <Select value={fields.sso} onChange={v => set('sso', v)} options={SSO_OPTS} />
+          </Field>
+
+          {/* SOC2 */}
+          <Field label="5. SOC 2 Report">
+            <CheckRow
+              label="SOC 2 Report Required"
+              desc="Vendor must provide a current SOC 2 Type II report before intake can proceed"
+              checked={fields.soc2}
+              onChange={v => set('soc2', v)}
+            />
+          </Field>
+
           {/* 3. Password Hygiene */}
           <Field label="6. Password Hygiene">
             <CheckRow
