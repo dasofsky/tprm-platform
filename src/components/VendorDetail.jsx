@@ -13,7 +13,7 @@ import { RA_DIMS, DD_ITEMS } from '../data'
 
 export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
   const t = useTheme()
-  const { canWrite, isAdmin } = useAuth()
+  const { canWrite, isAdmin, showDD } = useAuth()
   const [tab, setTab] = useState('intelligence')
   const [scores, setScores] = useState({ ...vendor.raScores })
   const [ddDone, setDdDone] = useState(vendor.ddCompleted || [])
@@ -72,7 +72,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
     ['approval',     '✅ Approval'],
     ['intelligence', '🔍 Intelligence'],
     ['assessment',   '📊 Assessment'],
-    ['dd',           `✅ Due Diligence (${ddPct}%)`],
+    ...(showDD ? [['dd', `✅ Due Diligence (${ddPct}%)`]] : []),
     ['documents',    '📁 Documents'],
     ['comments',     '💬 Notes'],
     ['alerts',       `🚨 Alerts${vendor.alerts?.length ? ` (${vendor.alerts.length})` : ''}`],

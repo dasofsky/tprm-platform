@@ -22,7 +22,7 @@ function scoreRgb(score) {
   return score >= 75 ? GREEN : score >= 50 ? AMBER : RED
 }
 
-export async function exportVendorPDF(vendor) {
+export async function exportVendorPDF(vendor, { showDD = true } = {}) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const W = 210, margin = 18
   let y = 0
@@ -276,88 +276,92 @@ export async function exportVendorPDF(vendor) {
     }
   }
 
-  // ── DUE DILIGENCE ─────────────────────────────────────────────────────────
-  // New page if we're getting close to the bottom
-  if (y > 220) { doc.addPage(); y = 20 }
-
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...DARK)
-  doc.text('Due Diligence Checklist', margin, y)
-
-  const ddPct = Math.round(((vendor.ddCompleted?.length || 0) / DD_ITEMS.length) * 100)
-  const pctRgb = ddPct === 100 ? GREEN : ddPct > 50 ? AMBER : RED
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...pctRgb)
-  doc.text(`${ddPct}% Complete`, W - margin, y, { align: 'right' })
-  y += 5
-
-  doc.setDrawColor(226, 232, 240)
-  doc.line(margin, y, W - margin, y)
-
-  // Progress bar
-  y += 4
-  doc.setFillColor(226, 232, 240)
-  doc.roundedRect(margin, y, W - margin*2, 3, 1, 1, 'F')
-  doc.setFillColor(...pctRgb)
-  doc.roundedRect(margin, y, (W - margin*2) * ddPct/100, 3, 1, 1, 'F')
-  y += 8
-
-  // Checklist items in 2 columns
-  DD_ITEMS.forEach((item, i) => {
-    const done = vendor.ddCompleted?.includes(i)
-    const col  = i % 2 === 0 ? margin : W/2 + 4
-    if (i % 2 === 0 && i > 0) y += 6
-
-    doc.setFontSize(9)
-    if (done) {
-      doc.setFillColor(...GREEN)
-      doc.circle(col + 2, y - 1.5, 2, 'F')
-      doc.setTextColor(...WHITE)
-      doc.setFont('helvetica', 'bold')
-      doc.text('✓', col + 1.3, y - 0.5)
-      doc.setTextColor(...DARK)
-      doc.setFont('helvetica', 'normal')
-    } else {
-      doc.setDrawColor(200, 210, 220)
-      doc.circle(col + 2, y - 1.5, 2, 'S')
-      doc.setTextColor(...GRAY)
-      doc.setFont('helvetica', 'normal')
-    }
-    doc.text(item, col + 6, y)
-  })
-  y += 10
-
-  // ── ALERTS ────────────────────────────────────────────────────────────────
-  if (vendor.alerts?.length > 0) {
-    if (y > 240) { doc.addPage(); y = 20 }
-
+  if (showDD) {
+    // ── DUE DILIGENCE ─────────────────────────────────────────────────────────
+    // New page if we're getting close to the bottom
+    if (y > 220) { doc.addPage(); y = 20 }
+  
     doc.setFontSize(12)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...DARK)
-    doc.text('Active Alerts', margin, y)
+    doc.text('Due Diligence Checklist', margin, y)
+  
+    const ddPct = Math.round(((vendor.ddCompleted?.length || 0) / DD_ITEMS.length) * 100)
+    const pctRgb = ddPct === 100 ? GREEN : ddPct > 50 ? AMBER : RED
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...pctRgb)
+    doc.text(`${ddPct}% Complete`, W - margin, y, { align: 'right' })
     y += 5
+  
     doc.setDrawColor(226, 232, 240)
     doc.line(margin, y, W - margin, y)
-    y += 6
-
-    vendor.alerts.forEach(a => {
-      const aCol = a.type === 'critical' ? RED : a.type === 'warning' ? AMBER : [3, 105, 161]
-      doc.setFillColor(...aCol)
-      doc.rect(margin, y - 3, 2.5, 7, 'F')
+  
+    // Progress bar
+    y += 4
+    doc.setFillColor(226, 232, 240)
+    doc.roundedRect(margin, y, W - margin*2, 3, 1, 1, 'F')
+    doc.setFillColor(...pctRgb)
+    doc.roundedRect(margin, y, (W - margin*2) * ddPct/100, 3, 1, 1, 'F')
+    y += 8
+  
+    // Checklist items in 2 columns
+    DD_ITEMS.forEach((item, i) => {
+      const done = vendor.ddCompleted?.includes(i)
+      const col  = i % 2 === 0 ? margin : W/2 + 4
+      if (i % 2 === 0 && i > 0) y += 6
+  
       doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(...aCol)
-      doc.text(a.type.toUpperCase(), margin + 5, y + 0.5)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(...DARK)
-      doc.text(a.msg, margin + 22, y + 0.5)
-      y += 8
+      if (done) {
+        doc.setFillColor(...GREEN)
+        doc.circle(col + 2, y - 1.5, 2, 'F')
+        doc.setTextColor(...WHITE)
+        doc.setFont('helvetica', 'bold')
+        doc.text('✓', col + 1.3, y - 0.5)
+        doc.setTextColor(...DARK)
+        doc.setFont('helvetica', 'normal')
+      } else {
+        doc.setDrawColor(200, 210, 220)
+        doc.circle(col + 2, y - 1.5, 2, 'S')
+        doc.setTextColor(...GRAY)
+        doc.setFont('helvetica', 'normal')
+      }
+      doc.text(item, col + 6, y)
     })
+    y += 10
+  
+    // ── ALERTS ────────────────────────────────────────────────────────────────
+    if (vendor.alerts?.length > 0) {
+      if (y > 240) { doc.addPage(); y = 20 }
+  
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...DARK)
+      doc.text('Active Alerts', margin, y)
+      y += 5
+      doc.setDrawColor(226, 232, 240)
+      doc.line(margin, y, W - margin, y)
+      y += 6
+  
+      vendor.alerts.forEach(a => {
+        const aCol = a.type === 'critical' ? RED : a.type === 'warning' ? AMBER : [3, 105, 161]
+        doc.setFillColor(...aCol)
+        doc.rect(margin, y - 3, 2.5, 7, 'F')
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...aCol)
+        doc.text(a.type.toUpperCase(), margin + 5, y + 0.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...DARK)
+        doc.text(a.msg, margin + 22, y + 0.5)
+        y += 8
+      })
+    }
+  
+  
   }
 
-  // ── DOCUMENTS USED IN ANALYSIS ───────────────────────────────────────────
+    // ── DOCUMENTS USED IN ANALYSIS ───────────────────────────────────────────
   // Fetch documents from Supabase for this vendor
   let vendorDocs = []
   try {
@@ -460,7 +464,149 @@ export async function exportVendorPDF(vendor) {
     })
   }
 
-    // ── FOOTER ────────────────────────────────────────────────────────────────
+  
+  // ── APPROVAL DECISION ────────────────────────────────────────────────────
+  const appr = vendor.approval || {}
+  if (appr.status && appr.status !== 'N/A') {
+    if (y > 220) { doc.addPage(); y = 20 }
+
+    // Section header
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...DARK)
+    doc.text('Approval Decision', margin, y)
+    y += 5
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.4)
+    doc.line(margin, y, W - margin, y)
+    y += 8
+
+    // Status badge row
+    const approvalColors = {
+      'Approved':                      [22, 163, 74],
+      'Approved with Conditions':      [217, 119, 6],
+      'Approved with Recommendations': [217, 119, 6],
+      'Denied':                        [220, 38, 38],
+    }
+    const aCol = approvalColors[appr.status] || GRAY
+
+    doc.setFillColor(...aCol)
+    doc.roundedRect(margin, y - 4, 3, 14, 1, 1, 'F')
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...aCol)
+    doc.text(appr.status, margin + 8, y + 5)
+
+    if (appr.savedAt || appr.savedBy) {
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(...GRAY)
+      const savedStr = [
+        appr.savedBy ? `by ${appr.savedBy}` : '',
+        appr.savedAt ? new Date(appr.savedAt).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '',
+      ].filter(Boolean).join(' · ')
+      doc.text(savedStr, margin + 8, y + 12)
+    }
+    y += 20
+
+    // Field rows — only show non-N/A fields
+    const approvalRows = [
+      { label: 'MFA',               value: appr.mfa,        show: appr.mfa && appr.mfa !== 'N/A' },
+      { label: 'DPA',               value: appr.dpa,        show: appr.dpa && appr.dpa !== 'N/A' },
+      { label: 'Password Hygiene',  value: 'Required',      show: appr.passwordHygiene },
+      { label: 'URL Whitelist',     value: appr.whitelist,  show: appr.whitelist && appr.whitelist !== 'N/A' },
+      { label: 'VLAN',              value: appr.vlan,       show: appr.vlan && appr.vlan !== 'N/A' },
+      { label: 'Pilot Deployment',  value: 'Yes',           show: appr.pilot },
+    ]
+
+    const visibleRows = approvalRows.filter(r => r.show)
+    if (visibleRows.length > 0) {
+      doc.setFontSize(8.5)
+      visibleRows.forEach(row => {
+        if (y > 270) { doc.addPage(); y = 20 }
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...DARK)
+        doc.text(`${row.label}:`, margin, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...GRAY)
+        doc.text(String(row.value), margin + 38, y)
+        y += 6
+      })
+
+      // Whitelist exceptions
+      if (appr.whitelist === 'Approved Except' && appr.whitelistExcept?.trim()) {
+        appr.whitelistExcept.trim().split('\n').filter(Boolean).forEach(url => {
+          if (y > 270) { doc.addPage(); y = 20 }
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(...GRAY)
+          doc.setFontSize(8)
+          doc.text(`  • ${url.trim()}`, margin + 38, y)
+          y += 5
+        })
+      }
+      y += 4
+    }
+
+    // Generated Jira text
+    if (appr.generatedText?.trim()) {
+      if (y > 240) { doc.addPage(); y = 20 }
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...DARK)
+      doc.text('Jira Post Content', margin, y)
+      y += 6
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8.5)
+      doc.setTextColor(...GRAY)
+
+      const jiraLines = appr.generatedText.trim().split('\n')
+      jiraLines.forEach(line => {
+        if (y > 270) { doc.addPage(); y = 20 }
+        if (!line.trim()) { y += 3; return }
+
+        // Bold section headers (lines wrapped in *asterisks*)
+        if (line.startsWith('*') && line.endsWith('*')) {
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...DARK)
+          const headerText = line.slice(1, -1)
+          doc.text(headerText, margin, y)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(...GRAY)
+          y += 5
+          return
+        }
+
+        // Bullet points
+        const prefix   = line.startsWith('•') ? '• ' : ''
+        const textBody = line.startsWith('•') ? line.slice(1).trim() : line
+        const indent   = line.startsWith('•') ? margin + 4 : margin
+        const wrapped  = doc.splitTextToSize(prefix + textBody, W - indent - margin)
+        doc.text(wrapped, indent, y)
+        y += wrapped.length * 4.5
+      })
+    }
+
+    // Additional notes
+    if (appr.additionalNotes?.trim()) {
+      if (y > 240) { doc.addPage(); y = 20 }
+      y += 4
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...DARK)
+      doc.text('Additional Notes', margin, y)
+      y += 6
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8.5)
+      doc.setTextColor(...GRAY)
+      const noteLines = doc.splitTextToSize(appr.additionalNotes.trim(), W - margin * 2)
+      doc.text(noteLines, margin, y)
+      y += noteLines.length * 4.5 + 4
+    }
+  }
+
+  // ── FOOTER ────────────────────────────────────────────────────────────────
   const pageCount = doc.internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)

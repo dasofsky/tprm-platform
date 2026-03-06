@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTheme, useAuth } from '../context'
 import { Avatar, TBtn } from './ui'
 
-const NAV_TABS = [
+const ALL_NAV_TABS = [
   { id: 'overview',    label: 'Overview' },
   { id: 'dd',         label: 'Due Diligence' },
   { id: 'ra',         label: 'Risk Assessment' },
@@ -12,7 +12,7 @@ const NAV_TABS = [
 
 export function Navbar({ activeTab, onTabChange, vendorOpen, onSignOut }) {
   const t = useTheme()
-  const { users, currentUser, setCurrentUser, isAdmin } = useAuth()
+  const { users, currentUser, setCurrentUser, isAdmin, showDD } = useAuth()
   const [showMenu, setShowMenu] = useState(false)
 
   return (
@@ -30,7 +30,7 @@ export function Navbar({ activeTab, onTabChange, vendorOpen, onSignOut }) {
 
       {/* Nav Tabs */}
       <div style={{ display: 'flex', gap: 2, background: t.surface2, padding: 3, borderRadius: 10, border: `1px solid ${t.border}` }}>
-        {NAV_TABS.map(nt => (
+        {ALL_NAV_TABS.filter(t => t.id !== 'dd' || showDD).map(nt => (
           <TBtn key={nt.id} active={activeTab === nt.id && !vendorOpen} onClick={() => onTabChange(nt.id)}>
             {nt.label}
           </TBtn>

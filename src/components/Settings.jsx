@@ -197,6 +197,7 @@ export function SettingsPage() {
     ['appearance', '🎨 Appearance'],
     ['profile', '👤 My Profile'],
     ...(isAdmin ? [['categories', '🗂 Categories']] : []),
+    ...(isAdmin ? [['features',   '🔧 Features']]    : []),
   ]
 
   return (
@@ -383,6 +384,32 @@ export function SettingsPage() {
                   </Btn>
                 </>
             }
+          </Card>
+        </div>
+      )}
+
+      {/* ── FEATURES ── */}
+      {stab === 'features' && isAdmin && (
+        <div style={{ maxWidth: 560 }}>
+          <Card style={{ padding: 24 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: t.text, marginBottom: 4 }}>Feature Flags</div>
+            <div style={{ fontSize: 12, color: t.text2, marginBottom: 20 }}>Enable or disable platform features. Changes take effect immediately for all users.</div>
+
+            <div onClick={() => toggleDD(!showDD)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: t.surface2, border: `1px solid ${t.border}`, borderRadius: 10, cursor: 'pointer' }}
+              onMouseOver={e => e.currentTarget.style.borderColor = t.accent}
+              onMouseOut={e => e.currentTarget.style.borderColor = t.border}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Due Diligence Tab</div>
+                <div style={{ fontSize: 12, color: t.text2, marginTop: 2 }}>Show the Due Diligence checklist tab on vendor pages and in the main navigation</div>
+              </div>
+              <div style={{ width: 44, height: 24, borderRadius: 999, background: showDD ? t.accent : t.border, position: 'relative', transition: 'background .2s', flexShrink: 0, marginLeft: 16 }}>
+                <div style={{ position: 'absolute', top: 3, left: showDD ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: t.text3, marginTop: 8 }}>
+              {showDD ? '✅ Due Diligence is currently visible' : '🚫 Due Diligence is currently hidden'}
+            </div>
           </Card>
         </div>
       )}

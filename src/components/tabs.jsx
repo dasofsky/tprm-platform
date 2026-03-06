@@ -14,7 +14,7 @@ const ALL_COLUMNS = [
   { id: 'tier',      label: 'Tier' },
   { id: 'status',    label: 'Status' },
   { id: 'riskScore', label: 'Risk Score' },
-  { id: 'dd',        label: 'DD Progress' },
+  ...(true ? [{ id: 'dd', label: 'DD Progress' }] : []),  // filtered by showDD below
   { id: 'contact',   label: 'Contact' },
   { id: 'contactEmail', label: 'Contact Email' },
   { id: 'jira',      label: 'Jira Ticket' },
@@ -89,7 +89,7 @@ function VendorLogo({ vendor, size = 28 }) {
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
   const t = useTheme()
-  const { canWrite } = useAuth()
+  const { canWrite, showDD } = useAuth()
   const [visibleCols, setVisibleCols] = useState(DEFAULT_COLS)
   const allAlerts = vendors.flatMap(v => (v.alerts || []).map(a => ({ ...a, vendor: v.name })))
   const counts = {
