@@ -90,7 +90,12 @@ function VendorLogo({ vendor, size = 28 }) {
 export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
   const t = useTheme()
   const { canWrite, showDD } = useAuth()
-  const [visibleCols, setVisibleCols] = useState(DEFAULT_COLS)
+  const [visibleCols,   setVisibleCols]   = useState(DEFAULT_COLS)
+  const [searchQuery,   setSearchQuery]   = useState('')
+  const [filterStatus,  setFilterStatus]  = useState('all')
+  const [filterCat,     setFilterCat]     = useState('all')
+  const [filterTier,    setFilterTier]    = useState('all')
+  const [filterHasDocs, setFilterHasDocs] = useState(false)
   const allAlerts = vendors.flatMap(v => (v.alerts || []).map(a => ({ ...a, vendor: v.name })))
   const counts = {
     total:  vendors.length,
@@ -98,6 +103,36 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
     high:   vendors.filter(v => v.riskScore < 50).length,
     crit:   allAlerts.filter(a => a.type === 'critical').length,
   }
+  // Derive unique values for filter dropdowns
+  const allStatuses  = [...new Set(vendors.map(v => v.status).filter(Boolean))]
+  const allCats      = [...new Set(vendors.map(v => v.category).filter(Boolean))]
+  const allTiers     = [...new Set(vendors.map(v => v.tier).filter(Boolean))]
+
+  // Apply search + filters
+  const filtered = vendors.filter(v => {
+    const q = searchQuery.toLowerCase().trim()
+    if (q && !v.name?.toLowerCase().includes(q) &&
+             !v.category?.toLowerCase().includes(q) &&
+             !v.contact?.toLowerCase().includes(q) &&
+             !v.contactEmail?.toLowerCase().includes(q) &&
+             !v.jiraTicket?.toLowerCase().includes(q)) return false
+    if (filterStatus !== 'all' && v.status !== filterStatus) return false
+    if (filterCat    !== 'all' && v.category !== filterCat)  return false
+    if (filterTier   !== 'all' && v.tier !== filterTier)     return false
+    if (filterHasDocs && !(v.documents?.length > 0))         return false
+    return true
+  })
+
+  const activeFilters = [
+    filterStatus !== 'all', filterCat !== 'all',
+    filterTier !== 'all', filterHasDocs, searchQuery.trim() !== ''
+  ].filter(Boolean).length
+
+  const clearAll = () => {
+    setSearchQuery(''); setFilterStatus('all')
+    setFilterCat('all'); setFilterTier('all'); setFilterHasDocs(false)
+  }
+
   const show = id => visibleCols.includes(id)
 
   return (
@@ -156,9 +191,69 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
 
       {/* Vendor table */}
       <Card style={{ overflow: 'hidden' }}>
-        <div style={{ padding: '13px 20px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>All Vendors <span style={{ fontSize: 11, color: t.text3, fontWeight: 400 }}>{vendors.length} total</span></span>
-          <ColumnSelector visible={visibleCols} onChange={setVisibleCols} />
+        {/* Search + Filter bar */}
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${t.border}` }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Search input */}
+            <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 180 }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: t.text3, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search vendors..."
+                style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 7, paddingBottom: 7, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 12, color: t.text, background: t.inputBg, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: t.text3, fontSize: 12 }}>✕</button>
+              )}
+            </div>
+
+            {/* Status filter */}
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${filterStatus !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterStatus !== 'all' ? t.accentText : t.text2, background: filterStatus !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All Statuses</option>
+              {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* Category filter */}
+            <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${filterCat !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterCat !== 'all' ? t.accentText : t.text2, background: filterCat !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All Categories</option>
+              {allCats.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* Tier filter */}
+            <select value={filterTier} onChange={e => setFilterTier(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${filterTier !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterTier !== 'all' ? t.accentText : t.text2, background: filterTier !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All Tiers</option>
+              {allTiers.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* Has documents toggle */}
+            <button onClick={() => setFilterHasDocs(p => !p)}
+              style={{ padding: '7px 12px', border: `1px solid ${filterHasDocs ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: filterHasDocs ? t.accentText : t.text2, background: filterHasDocs ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              📎 Has Docs
+            </button>
+
+            {/* Clear filters */}
+            {activeFilters > 0 && (
+              <button onClick={clearAll}
+                style={{ padding: '7px 12px', border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 12, color: t.dangerText, background: t.dangerBg, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                ✕ Clear ({activeFilters})
+              </button>
+            )}
+
+            {/* Column selector + result count pushed right */}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: t.text3, whiteSpace: 'nowrap' }}>
+                {filtered.length === vendors.length
+                  ? <>{vendors.length} vendors</>
+                  : <><strong style={{ color: t.text }}>{filtered.length}</strong> of {vendors.length}</>
+                }
+              </span>
+              <ColumnSelector visible={visibleCols} onChange={setVisibleCols} />
+            </div>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -180,7 +275,12 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
               </tr>
             </thead>
             <tbody>
-              {vendors.map((v, i) => {
+              {filtered.length === 0
+                ? <tr><td colSpan={20} style={{ padding: '40px 20px', textAlign: 'center', color: t.text3, fontSize: 13 }}>
+                    No vendors match your search.{' '}
+                    <button onClick={clearAll} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Clear filters</button>
+                  </td></tr>
+                : filtered.map((v, i) => {
                 const ddP = Math.round(((v.ddCompleted?.length || 0) / DD_ITEMS.length) * 100)
                 const alertCount = v.alerts?.length || 0
                 return (
@@ -242,6 +342,7 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                   </tr>
                 )
               })}
+              }
             </tbody>
           </table>
         </div>
