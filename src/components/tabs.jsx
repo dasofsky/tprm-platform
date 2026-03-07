@@ -4,6 +4,7 @@ import { useAuth } from '../context'
 import { Card, Btn, SBadge, ScorePill, SectionHeader, AlertRow } from './ui'
 import { BarChart, RadarChart, MiniLine } from './charts'
 import { riskColor, tierDot, alertStyle } from '../utils'
+import { supabase } from '../supabase'
 import { AssignedTo } from './AssignedTo'
 import { DD_ITEMS, RA_DIMS } from '../data'
 
@@ -91,11 +92,25 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
   const t = useTheme()
   const { canWrite, showDD } = useAuth()
   const [visibleCols,   setVisibleCols]   = useState(DEFAULT_COLS)
+  const [docCounts,     setDocCounts]     = useState({})  // { vendorId: count }
+
+  useEffect(() => {
+    supabase
+      .from('documents')
+      .select('vendor_id')
+      .then(({ data }) => {
+        if (!data) return
+        const counts = {}
+        data.forEach(d => { counts[d.vendor_id] = (counts[d.vendor_id] || 0) + 1 })
+        setDocCounts(counts)
+      })
+  }, [])
   const [searchQuery,   setSearchQuery]   = useState('')
   const [filterStatus,  setFilterStatus]  = useState('all')
   const [filterCat,     setFilterCat]     = useState('all')
   const [filterTier,    setFilterTier]    = useState('all')
-  const [filterHasDocs, setFilterHasDocs] = useState(false)
+  const [filterHasDocs,  setFilterHasDocs]  = useState(false)
+  const [filterAssessor, setFilterAssessor] = useState('all')
   const allAlerts = vendors.flatMap(v => (v.alerts || []).map(a => ({ ...a, vendor: v.name })))
   const counts = {
     total:  vendors.length,
@@ -119,18 +134,21 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
     if (filterStatus !== 'all' && v.status !== filterStatus) return false
     if (filterCat    !== 'all' && v.category !== filterCat)  return false
     if (filterTier   !== 'all' && v.tier !== filterTier)     return false
-    if (filterHasDocs && !(v.documents?.length > 0))         return false
+    if (filterHasDocs && !(docCounts[v.id] > 0))             return false
+    if (filterAssessor !== 'all' && v.assignedTo !== filterAssessor) return false
     return true
   })
 
   const activeFilters = [
     filterStatus !== 'all', filterCat !== 'all',
-    filterTier !== 'all', filterHasDocs, searchQuery.trim() !== ''
+    filterTier !== 'all', filterHasDocs, searchQuery.trim() !== '',
+    filterAssessor !== 'all'
   ].filter(Boolean).length
 
   const clearAll = () => {
     setSearchQuery(''); setFilterStatus('all')
-    setFilterCat('all'); setFilterTier('all'); setFilterHasDocs(false)
+    setFilterCat('all'); setFilterTier('all')
+    setFilterHasDocs(false); setFilterAssessor('all')
   }
 
   const show = id => visibleCols.includes(id)
@@ -229,7 +247,18 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
               {allTiers.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
-            {/* Has documents toggle */}
+            {/* Assessor filter */}
+            {vendors.some(v => v.assignedTo) && (
+              <select value={filterAssessor} onChange={e => setFilterAssessor(e.target.value)}
+                style={{ padding: '7px 10px', border: `1px solid ${filterAssessor !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterAssessor !== 'all' ? t.accentText : t.text2, background: filterAssessor !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+                <option value="all">All Assessors</option>
+                {[...new Set(vendors.map(v => v.assignedTo).filter(Boolean))].sort().map(a => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Has documents toggle — uses real doc counts from documents table */}
             <button onClick={() => setFilterHasDocs(p => !p)}
               style={{ padding: '7px 12px', border: `1px solid ${filterHasDocs ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: filterHasDocs ? t.accentText : t.text2, background: filterHasDocs ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
               📎 Has Docs
@@ -293,7 +322,15 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                         <VendorLogo vendor={v} size={28} />
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{v.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{v.name}</span>
+                            {docCounts[v.id] > 0 && (
+                              <span title={`${docCounts[v.id]} document${docCounts[v.id] > 1 ? 's' : ''} uploaded`}
+                                style={{ fontSize: 10, fontWeight: 700, color: t.accent, background: t.accentBg, border: `1px solid ${t.accent}33`, borderRadius: 999, padding: '0 5px', lineHeight: '16px' }}>
+                                📎 {docCounts[v.id]}
+                              </span>
+                            )}
+                          </div>
                           <a href={v.website} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: t.accent }}>{v.website}</a>
                         </div>
                       </div>
