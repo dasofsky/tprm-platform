@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '../context'
 import { useAuth } from '../context'
 import { Card, Btn, SBadge, ScorePill, SectionHeader, AlertRow } from './ui'
