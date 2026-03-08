@@ -74,8 +74,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (authUser && users.length > 0) {
-      const match = users.find(u => u.email?.toLowerCase() === authUser.email?.toLowerCase())
-      setProfileUser(match || users[0])
+      const authEmail = authUser.email?.toLowerCase()
+      const match = users.find(u => u.email?.toLowerCase() === authEmail)
+      if (match) {
+        setProfileUser(match)
+      } else {
+        // No profile row for this auth email — default to first admin
+        const firstAdmin = users.find(u => u.role === 'admin') || users[0]
+        setProfileUser(firstAdmin)
+      }
     }
   }, [authUser, users])
 
@@ -98,6 +105,10 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = () => supabase.auth.signOut()
+
+  // Feature flags — persisted in localStorage
+  const [showDD,   setShowDD]   = useState(() => localStorage.getItem('feature_showDD') !== 'false')
+  const toggleDD = (val) => { setShowDD(val); localStorage.setItem('feature_showDD', String(val)) }
 
   // The "current user" is the TPRM profile matched to auth email
   // Fall back to first user if no match (for demo mode)
@@ -140,6 +151,7 @@ export function AuthProvider({ children }) {
       addUser, updateUser, deleteUser,
       loading: authLoading || usersLoading,
       signOut,
+      showDD, toggleDD,
     }}>
       {children}
     </AuthCtx.Provider>
