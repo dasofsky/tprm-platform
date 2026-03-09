@@ -15,7 +15,6 @@ const ALL_COLUMNS = [
   { id: 'tier',         label: 'Tier' },
   { id: 'status',       label: 'Status' },
   { id: 'riskScore',    label: 'Risk Score' },
-  ...(true ? [{ id: 'dd', label: 'DD Progress' }] : []),  // filtered by showDD below
   { id: 'assessor',     label: 'Assessor' },
   { id: 'docs',         label: 'Documents' },
   { id: 'contact',      label: 'Contact' },
@@ -24,7 +23,7 @@ const ALL_COLUMNS = [
   { id: 'alerts',       label: 'Alerts' },
 ]
 
-const DEFAULT_COLS = ['name', 'category', 'tier', 'status', 'riskScore', 'dd']
+const DEFAULT_COLS = ['name', 'category', 'tier', 'status', 'riskScore', 'jira']
 
 // ─── COLUMN SELECTOR ──────────────────────────────────────────────────────────
 function ColumnSelector({ visible, onChange }) {
@@ -296,7 +295,6 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                 {show('tier')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Tier</th>}
                 {show('status')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Status</th>}
                 {show('riskScore') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Risk Score</th>}
-                {show('dd')        && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>DD Progress</th>}
                 {show('contact')   && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact</th>}
                 {show('contactEmail') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact Email</th>}
                 {show('jira')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Jira</th>}
@@ -343,22 +341,14 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                     {show('tier')      && <td style={{ padding: '10px 14px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: t.text2 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: tierDot(v.tier), display: 'inline-block', flexShrink: 0 }} />{v.tier}</span></td>}
                     {show('status')    && <td style={{ padding: '10px 14px' }}><SBadge status={v.status} /></td>}
                     {show('riskScore') && <td style={{ padding: '10px 14px' }}><ScorePill score={v.riskScore} /></td>}
-                    {show('dd')        && (
-                      <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 60, background: t.border, borderRadius: 999, height: 5 }}>
-                            <div style={{ width: `${ddP}%`, background: ddP === 100 ? '#16a34a' : ddP > 50 ? '#d97706' : '#dc2626', height: 5, borderRadius: 999 }} />
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: t.text2 }}>{ddP}%</span>
-                        </div>
-                      </td>
-                    )}
                     {show('contact')   && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.contact || '—'}</td>}
                     {show('contactEmail') && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.contactEmail ? <a href={`mailto:${v.contactEmail}`} style={{ color: '#6366f1' }}>{v.contactEmail}</a> : '—'}</td>}
                     {show('jira')      && (
                       <td style={{ padding: '10px 14px' }}>
                         {v.jiraTicket
-                          ? <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4 }}>{v.jiraTicket}</span>
+                          ? <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4 }}>
+                              {/^NPW-/i.test(v.jiraTicket) ? v.jiraTicket : `NPW-${v.jiraTicket}`}
+                            </span>
                           : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
                       </td>
                     )}
