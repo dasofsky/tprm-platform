@@ -22,6 +22,31 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
   const [scoreReasons, setScoreReasons]   = useState(vendor.scoreReasons || {})
   const [reasonsLoading, setReasonsLoading] = useState(false)
   const [statusOpen, setStatusOpen] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState({})
+  const [categories, setCategories] = useState([])
+
+  function openEdit() {
+    setEditForm({
+      name:         vendor.name        || '',
+      website:      vendor.website     || '',
+      category:     vendor.category    || '',
+      contact:      vendor.contact     || '',
+      contactEmail: vendor.contactEmail || '',
+      jiraTicket:   vendor.jiraTicket  || '',
+    })
+    import('../db').then(db => db.fetchCategories().then(setCategories))
+    setShowEdit(true)
+  }
+
+  function saveEdit() {
+    const updates = { ...vendor, ...editForm }
+    if (editForm.jiraTicket && !editForm.jiraTicket.startsWith('NPW-')) {
+      updates.jiraTicket = 'NPW-' + editForm.jiraTicket.replace(/^NPW-/i, '')
+    }
+    onUpdate(updates)
+    setShowEdit(false)
+  }
 
   const updateScore = (key, val) => {
     const ns = { ...scores, [key]: Number(val) }
@@ -97,7 +122,17 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
       {/* Header */}
       <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 21, fontWeight: 800, color: t.text, letterSpacing: '-.025em' }}>{vendor.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 21, fontWeight: 800, color: t.text, letterSpacing: '-.025em' }}>{vendor.name}</div>
+            {canWrite && (
+              <button onClick={openEdit} title="Edit vendor details"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 5px', borderRadius: 6, color: t.text3, fontSize: 14, opacity: 0.5, lineHeight: 1, transition: 'opacity .15s' }}
+                onMouseOver={e => e.currentTarget.style.opacity = '1'}
+                onMouseOut={e => e.currentTarget.style.opacity = '0.5'}>
+                ✏️
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 5, flexWrap: 'wrap' }}>
             {/* Clickable status dropdown */}
             <div style={{ position: 'relative' }}>
@@ -246,6 +281,67 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <Btn variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</Btn>
               <Btn variant="danger" onClick={() => { setShowDeleteConfirm(false); onDelete(vendor.id) }}>Delete Permanently</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Vendor Drawer */}
+      {showEdit && (
+        <div onClick={() => setShowEdit(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 70, display: 'flex', justifyContent: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ width: 380, height: '100%', background: t.surface, borderLeft: `1px solid ${t.border}`, boxShadow: '-12px 0 48px rgba(0,0,0,.25)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            {/* Drawer header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>Edit Vendor</div>
+                <div style={{ fontSize: 12, color: t.text3, marginTop: 2 }}>{vendor.name}</div>
+              </div>
+              <button onClick={() => setShowEdit(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: t.text3, padding: 4, borderRadius: 6 }}>✕</button>
+            </div>
+
+            {/* Fields */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+              {[
+                { label: 'Vendor Name', key: 'name', placeholder: 'Acme Corp', required: true },
+                { label: 'Website', key: 'website', placeholder: 'https://example.com', type: 'url' },
+                { label: 'Contact Name', key: 'contact', placeholder: 'Jane Smith' },
+                { label: 'Contact Email', key: 'contactEmail', placeholder: 'jane@example.com', type: 'email' },
+                { label: 'Jira Ticket', key: 'jiraTicket', placeholder: 'e.g. 1234 or NPW-1234' },
+              ].map(({ label, key, placeholder, type, required }) => (
+                <div key={key}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>
+                    {label}{required && <span style={{ color: t.dangerText }}> *</span>}
+                  </div>
+                  <input
+                    type={type || 'text'}
+                    value={editForm[key]}
+                    onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: `1.5px solid ${t.border}`, background: t.surface2, color: t.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+              ))}
+
+              {/* Category */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: t.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>Category</div>
+                <select
+                  value={editForm.category}
+                  onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 9, border: `1.5px solid ${t.border}`, background: t.surface2, color: t.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}>
+                  {(categories.length ? categories : [editForm.category]).map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div style={{ padding: '16px 24px', borderTop: `1px solid ${t.border}`, display: 'flex', gap: 10 }}>
+              <Btn variant="ghost" onClick={() => setShowEdit(false)} style={{ flex: 1 }}>Cancel</Btn>
+              <Btn onClick={saveEdit} style={{ flex: 1 }} disabled={!editForm.name?.trim()}>Save Changes</Btn>
             </div>
           </div>
         </div>
