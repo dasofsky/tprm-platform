@@ -21,6 +21,7 @@ const FIELD_DEFAULTS = {
   dpa:              'N/A',
   sso:              'N/A',
   soc2:             false,
+  cdk:              false,
   additionalNotes:  '',
   generatedText:    '',
   savedAt:          null,
@@ -88,6 +89,13 @@ function generateText(fields, vendorName, jiraTicket) {
   if (fields.soc2) {
     lines.push('*SOC 2 Report Requirement*')
     lines.push('The vendor must present a current SOC 2 Type II report before this intake can move forward. The report must be dated within the last 12 months. Please submit the report to the TPRM team for review prior to proceeding to the next stage of the intake process.')
+    lines.push('')
+  }
+
+  // ── CDK 3PA ──────────────────────────────────────────────────────────────
+  if (fields.cdk) {
+    lines.push('*CDK 3PA Certification Requirement*')
+    lines.push('This vendor must be CDK 3PA (Third-Party Access) certified before integration or access to CDK systems is permitted. Please confirm the vendor\'s current 3PA certification status with the CDK administration team and provide documentation of active certification to the TPRM team prior to deployment.')
     lines.push('')
   }
 
@@ -204,7 +212,7 @@ export function ApprovalTab({ vendor, onUpdate }) {
   useEffect(() => {
     const text = generateText(fields, vendor.name, vendor.jiraTicket)
     setFields(p => ({ ...p, generatedText: text }))
-  }, [fields.status, fields.mfa, fields.dpa, fields.sso, fields.soc2, fields.passwordHygiene, fields.whitelist, fields.whitelistExcept, fields.vlan, fields.pilot, fields.additionalNotes])
+  }, [fields.status, fields.mfa, fields.dpa, fields.sso, fields.soc2, fields.cdk, fields.passwordHygiene, fields.whitelist, fields.whitelistExcept, fields.vlan, fields.pilot, fields.additionalNotes])
 
   const handleSave = async () => {
     setSaving(true)
@@ -393,8 +401,18 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
             />
           </Field>
 
+          {/* CDK */}
+          <Field label="10. CDK 3PA Certification">
+            <CheckRow
+              label="CDK 3PA Certification Required"
+              desc="Vendor must be CDK Third-Party Access certified before CDK system integration is permitted"
+              checked={fields.cdk}
+              onChange={v => set('cdk', v)}
+            />
+          </Field>
+
           {/* 6. Additional Notes */}
-          <Field label="10. Additional Notes" hint="(optional)">
+          <Field label="11. Additional Notes" hint="(optional)">
             <textarea
               value={fields.additionalNotes}
               onChange={e => set('additionalNotes', e.target.value)}
