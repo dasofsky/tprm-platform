@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { useTheme } from '../context'
 import { Btn, Spinner } from './ui'
 import { fetchCategories } from '../db'
@@ -41,16 +42,10 @@ function parseCSV(text) {
 }
 
 async function parseXLSX(buffer) {
-  // XLSX is a ZIP — extract first sheet and shared strings
-  const { default: unzipper } = await import('unzipper').catch(() => ({ default: null }))
-  if (!unzipper) throw new Error('XLSX parsing not available')
-
-  // Parse client-side using simple XML extraction
-  // We'll use SheetJS approach via ArrayBuffer
-  const { read, utils } = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs')
-  const wb = read(buffer)
-  const ws = wb.Sheets[wb.SheetNames[0]]
-  const rows = utils.sheet_to_json(ws, { defval: '' })
+  // XLSX is imported at top of file via npm package
+  const wb = XLSX.read(buffer, { type: 'array' })
+  const ws   = wb.Sheets[wb.SheetNames[0]]
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
   return rows.map(row => {
     const mapped = {}
     Object.entries(row).forEach(([h, v]) => {
