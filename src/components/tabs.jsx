@@ -10,16 +10,18 @@ import { DD_ITEMS, RA_DIMS } from '../data'
 
 // All possible columns with labels
 const ALL_COLUMNS = [
-  { id: 'name',      label: 'Vendor',      always: true },
-  { id: 'category',  label: 'Category' },
-  { id: 'tier',      label: 'Tier' },
-  { id: 'status',    label: 'Status' },
-  { id: 'riskScore', label: 'Risk Score' },
+  { id: 'name',         label: 'Vendor',        always: true },
+  { id: 'category',     label: 'Category' },
+  { id: 'tier',         label: 'Tier' },
+  { id: 'status',       label: 'Status' },
+  { id: 'riskScore',    label: 'Risk Score' },
   ...(true ? [{ id: 'dd', label: 'DD Progress' }] : []),  // filtered by showDD below
-  { id: 'contact',   label: 'Contact' },
+  { id: 'assessor',     label: 'Assessor' },
+  { id: 'docs',         label: 'Documents' },
+  { id: 'contact',      label: 'Contact' },
   { id: 'contactEmail', label: 'Contact Email' },
-  { id: 'jira',      label: 'Jira Ticket' },
-  { id: 'alerts',    label: 'Alerts' },
+  { id: 'jira',         label: 'Jira Ticket' },
+  { id: 'alerts',       label: 'Alerts' },
 ]
 
 const DEFAULT_COLS = ['name', 'category', 'tier', 'status', 'riskScore', 'dd']
@@ -299,6 +301,7 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                 {show('contactEmail') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact Email</th>}
                 {show('jira')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Jira</th>}
                 {show('assessor')  && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Assessor</th>}
+                {show('docs')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Documents</th>}
                 {show('alerts')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Alerts</th>}
                 <th style={{ padding: '9px 14px', borderBottom: `1px solid ${t.border}` }} />
               </tr>
@@ -363,6 +366,13 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                       <td style={{ padding: '10px 14px' }}>
                         {v.assignedTo
                           ? <span style={{ fontSize: 11, fontWeight: 600, color: t.text }}>{v.assignedTo.split(' ')[0]}</span>
+                          : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
+                      </td>
+                    )}
+                    {show('docs') && (
+                      <td style={{ padding: '10px 14px' }}>
+                        {(docCounts[v.id] || 0) > 0
+                          ? <span style={{ fontSize: 11, fontWeight: 600, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: 4 }}>✓ {docCounts[v.id]}</span>
                           : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
                       </td>
                     )}
