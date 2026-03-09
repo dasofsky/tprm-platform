@@ -164,7 +164,6 @@ export async function exportVendorPDF(vendor, { showDD = true } = {}) {
 
   const details = [
     ['Contact',  vendor.contact  || '—'],
-    ['Country',  vendor.country  || '—'],
     ['Category', vendor.category || '—'],
     ['Tier',     vendor.tier     || '—'],
     ['Status',   vendor.status   || '—'],

@@ -63,7 +63,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
 
     const handleExport = async () => {
     setExporting(true)
-    try { await exportVendorPDF(vendor) }
+    try { await exportVendorPDF(vendor, { showDD }) }
     finally { setExporting(false) }
   }
 
