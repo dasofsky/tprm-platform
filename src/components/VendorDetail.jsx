@@ -145,7 +145,7 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
                 <>
                   <div onClick={() => setStatusOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
                   <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: t.surface, border: `1px solid ${t.border}`, borderRadius: 10, padding: 6, minWidth: 180, boxShadow: `0 8px 28px rgba(0,0,0,${t.dark ? .5 : .14})`, zIndex: 60 }}>
-                    {['Active', 'Onboarding', 'Under Review', 'Suspended', 'Offboarded'].map(s => (
+                    {['Active', 'Onboarding', 'Under Review', 'Completed', 'Suspended', 'Offboarded'].map(s => (
                       <div key={s} onClick={() => { onUpdate({ ...vendor, status: s }); setStatusOpen(false) }}
                         style={{ padding: '7px 10px', borderRadius: 7, cursor: 'pointer', background: vendor.status === s ? t.surface2 : 'transparent' }}
                         onMouseOver={e => e.currentTarget.style.background = t.surface2}

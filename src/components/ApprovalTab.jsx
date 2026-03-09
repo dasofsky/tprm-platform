@@ -210,8 +210,9 @@ export function ApprovalTab({ vendor, onUpdate }) {
     setSaving(true)
     try {
       const approvalData = { ...fields, savedAt: new Date().toISOString(), savedBy: currentUser?.name }
-      await supabase.from('vendors').update({ approval: approvalData }).eq('id', vendor.id)
-      onUpdate({ ...vendor, approval: approvalData })
+      const updates = { approval: approvalData, status: 'Completed' }
+      await supabase.from('vendors').update(updates).eq('id', vendor.id)
+      onUpdate({ ...vendor, approval: approvalData, status: 'Completed' })
     } catch (err) {
       console.error('Save failed', err)
     } finally {
