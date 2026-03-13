@@ -3,6 +3,7 @@ import { useTheme, useAuth } from '../context'
 import { Card, Btn, Spinner } from './ui'
 import { RadarChart } from './charts'
 import { riskColor, riskLabel } from '../utils'
+import { ScorecardTab } from './ScorecardTab'
 import { RA_DIMS } from '../data'
 
 export function IntelligencePanel({ vendor, onUpdate }) {
@@ -68,6 +69,7 @@ export function IntelligencePanel({ vendor, onUpdate }) {
       <div style={{ display: 'flex', gap: 2, background: t.surface2, padding: 3, borderRadius: 10, border: `1px solid ${t.border}`, marginBottom: 18, width: 'fit-content' }}>
         <button style={tabStyle('research')}   onClick={() => setTab('research')}>🔍 Web Research</button>
         <button style={tabStyle('assessment')} onClick={() => setTab('assessment')}>📊 AI Assessment</button>
+        <button style={tabStyle('scorecard')}  onClick={() => setTab('scorecard')}>📋 Scorecard</button>
       </div>
 
       {/* ── RESEARCH TAB ── */}
@@ -270,6 +272,10 @@ export function IntelligencePanel({ vendor, onUpdate }) {
             </div>
           )}
         </div>
+      )}
+
+      {tab === 'scorecard' && (
+        <ScorecardTab vendor={vendor} onUpdate={onUpdate} />
       )}
     </div>
   )

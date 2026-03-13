@@ -8,7 +8,6 @@ import { CommentsTab } from './CommentsTab'
 import { exportVendorPDF } from '../pdfExport'
 import { AssignedTo }   from './AssignedTo'
 import { ApprovalTab }  from './ApprovalTab'
-import { ScorecardTab } from './ScorecardTab'
 import { riskColor, riskLabel } from '../utils'
 import { RA_DIMS, DD_ITEMS } from '../data'
 
@@ -99,7 +98,6 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
     ['approval',     '✅ Approval'],
     ['intelligence', '🔍 Intelligence'],
     ['assessment',   '📊 Assessment'],
-    ['scorecard',    '📋 Scorecard'],
     ...(showDD ? [['dd', `✅ Due Diligence (${ddPct}%)`]] : []),
     ['documents',    '📁 Documents'],
     ['comments',     '💬 Notes'],
@@ -260,7 +258,6 @@ export function VendorDetail({ vendor, onBack, onUpdate, onDelete }) {
         </Card>
       )}
 
-      {tab === 'scorecard'  && <ScorecardTab vendor={vendor} onUpdate={onUpdate} />}
       {tab === 'documents' && <DocumentsTab vendor={vendor} onScoreUpdate={onUpdate} />}
       {tab === 'comments'  && <CommentsTab  vendor={vendor} onScoreUpdate={onUpdate} />}
 

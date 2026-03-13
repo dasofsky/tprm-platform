@@ -101,6 +101,7 @@ export function ScorecardTab({ vendor, onUpdate }) {
         return 0
       })
       const filePaths = sorted.map(d => d.file_path).filter(Boolean)
+      const docTypes  = sorted.map(d => d.doc_type  || 'other')
       console.log(`Scorecard: sending ${filePaths.length} document(s) for ${vendor.name}`, filePaths.map(f => f.split('/').pop()))
 
       const res = await fetch('/api/scorecard', {
@@ -111,6 +112,7 @@ export function ScorecardTab({ vendor, onUpdate }) {
           vendorName:    vendor.name,
           vendorWebsite: vendor.website,
           filePaths,
+          docTypes,
           researchData:  vendor.research || null,
         }),
       })
@@ -162,6 +164,20 @@ export function ScorecardTab({ vendor, onUpdate }) {
           </button>
         )}
       </div>
+
+      {/* Partial results warning */}
+      {sc._partial && (
+        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8,
+          background: '#fffbeb', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 15 }}>⚠️</span>
+          <div style={{ fontSize: 12, color: '#92400e' }}>
+            <strong>Partial results</strong> — some documents were skipped due to API rate limits.
+            Wait a minute then <button onClick={handleGenerate} style={{ background: 'none', border: 'none',
+              cursor: 'pointer', color: '#92400e', textDecoration: 'underline', fontSize: 12, padding: 0,
+              fontFamily: 'inherit' }}>re-run the scorecard</button> to fill in remaining unknowns.
+          </div>
+        </div>
+      )}
 
       {/* Progress bar (only when we have data) */}
       {sc && (

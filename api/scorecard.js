@@ -1,24 +1,126 @@
 export const config = { maxDuration: 60 }
 
-const SCORECARD_QUESTIONS = [
-  { key: 'mfa',              label: 'MFA Supported/Enforced',          type: 'yesno' },
-  { key: 'sso',              label: 'SSO Supported',                   type: 'yesno' },
-  { key: 'soc2_iso',         label: 'SOC2 or ISO 27001 Certified',     type: 'yesno' },
-  { key: 'cloud_provider',   label: 'Cloud Provider',                  type: 'text'  },
-  { key: 'infosec_annual',   label: 'Reviews InfoSec Policies Annually', type: 'yesno' },
-  { key: 'security_team',    label: 'Dedicated Security Team',         type: 'yesno' },
-  { key: 'pii',              label: 'Handles PII',                     type: 'yesno' },
-  { key: 'password_policy',  label: 'Password Policy',                 type: 'yesno' },
-  { key: 'gold_master',      label: 'Servers Use Gold Master',         type: 'yesno' },
-  { key: 'security_awareness', label: 'Security Awareness Program',   type: 'yesno' },
-  { key: 'staging_env',      label: 'Staging/Pre-production Environment', type: 'yesno' },
-  { key: 'asset_inventory',  label: 'Inventory of IT Assets',         type: 'yesno' },
-  { key: 'library_inventory', label: 'Inventory of 3rd Party Libraries', type: 'yesno' },
-  { key: 'rbac',             label: 'Role Based Permissions',          type: 'yesno' },
-  { key: 'ir_testing',       label: 'Incident Response Testing Annually', type: 'yesno' },
-  { key: 'bcp',              label: 'Business Continuity Plan',        type: 'yesno' },
-  { key: 'outsource_dev',    label: 'Outsources Development Efforts',  type: 'yesno' },
-]
+// Priority order for document types — questionnaires answer the most questions
+const DOC_TYPE_PRIORITY = ['questionnaire', 'soc2', 'security', 'policy', 'other']
+
+const ALL_KEYS = ['mfa','sso','soc2_iso','cloud_provider','infosec_annual','security_team',
+  'pii','password_policy','gold_master','security_awareness','staging_env',
+  'asset_inventory','library_inventory','rbac','ir_testing','bcp','outsource_dev']
+
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+async function fetchDoc(supabaseUrl, serviceKey, fp) {
+  const signedRes = await fetch(
+    `${supabaseUrl}/storage/v1/object/sign/vendor-documents/${fp}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ expiresIn: 300 }),
+    }
+  )
+  const signedData = await signedRes.json()
+  if (!signedData.signedURL) throw new Error('Could not get signed URL')
+
+  const url     = `${supabaseUrl}/storage/v1${signedData.signedURL}`
+  const fileRes = await fetch(url)
+  const ext     = fp.split('.').pop().toLowerCase()
+
+  if (ext === 'pdf') {
+    const buf    = await fileRes.arrayBuffer()
+    const base64 = Buffer.from(buf).toString('base64')
+    return { type: 'pdf', base64, fileName: fp.split('/').pop() }
+  } else if (ext === 'docx' || ext === 'doc') {
+    const buf     = await fileRes.arrayBuffer()
+    const mammoth = await import('mammoth')
+    const result  = await mammoth.extractRawText({ buffer: Buffer.from(buf) })
+    return { type: 'text', text: result.value?.slice(0, 12000) || '', fileName: fp.split('/').pop() }
+  } else if (ext === 'txt') {
+    const text = await fileRes.text()
+    return { type: 'text', text: text.slice(0, 12000), fileName: fp.split('/').pop() }
+  }
+  return null
+}
+
+function buildContent(doc, vendorName, vendorWebsite, researchSection, unknownKeys) {
+  const content = []
+  if (doc.type === 'pdf') {
+    content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } })
+  }
+
+  const docSection = doc.type === 'text'
+    ? `DOCUMENT: ${doc.fileName}\n${doc.text}`
+    : `DOCUMENT: ${doc.fileName} (PDF — read the document block above)`
+
+  const prompt = `You are a third-party risk analyst completing a security scorecard for "${vendorName}" (${vendorWebsite || ''}).
+
+Read the provided document carefully. Answer ONLY the following questions. For each:
+- Clearly evidenced → "confidence": "high"
+- Reasonably inferred → "confidence": "medium"  
+- Not found → "value": "unknown", "confidence": "unknown"
+- "source": where exactly you found it (e.g. "Section 3.2", "Page 4", "Not found in this document")
+- cloud_provider: return provider name (AWS/Azure/GCP/etc), "N/A" if self-hosted, or "unknown"
+
+Questions to answer: ${unknownKeys.join(', ')}
+
+Return ONLY valid JSON, no markdown:
+{
+${unknownKeys.map(k => `  "${k}": { "value": "...", "confidence": "high|medium|unknown", "source": "..." }`).join(',\n')}
+}
+
+${docSection}
+${researchSection}`
+
+  content.push({ type: 'text', text: prompt })
+  return content
+}
+
+async function callClaude(apiKey, content, hasPdf, retries = 2) {
+  const headers = {
+    'Content-Type':      'application/json',
+    'x-api-key':         apiKey,
+    'anthropic-version': '2023-06-01',
+    ...(hasPdf ? { 'anthropic-beta': 'pdfs-2024-09-25' } : {}),
+  }
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 1500,
+        messages:   [{ role: 'user', content }],
+      }),
+    })
+
+    if (response.status === 429 && attempt < retries) {
+      const waitMs = (attempt + 1) * 15000
+      console.log(`Rate limited, waiting ${waitMs}ms before retry ${attempt + 1}`)
+      await sleep(waitMs)
+      continue
+    }
+
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error?.message || `API error ${response.status}`)
+    return data
+  }
+}
+
+function mergeResults(base, overlay) {
+  const rank = { high: 3, medium: 2, unknown: 1 }
+  const merged = { ...base }
+  for (const key of ALL_KEYS) {
+    if (!overlay[key]) continue
+    const baseR    = rank[base[key]?.confidence]    || 0
+    const overlayR = rank[overlay[key]?.confidence] || 0
+    if (overlayR > baseR) merged[key] = overlay[key]
+  }
+  return merged
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -29,157 +131,96 @@ export default async function handler(req, res) {
 
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' })
 
-  const { vendorId, vendorName, vendorWebsite, filePaths = [], researchData = null } = req.body
+  const { vendorId, vendorName, vendorWebsite, filePaths = [], docTypes = [], researchData = null } = req.body
   if (!vendorName) return res.status(400).json({ error: 'vendorName is required' })
 
-  // ── Fetch and read uploaded documents from Supabase Storage ─────────────
-  const documentTexts = []
-
-  if (filePaths.length > 0 && supabaseUrl && serviceKey) {
-    for (const fp of filePaths.slice(0, 5)) { // cap at 5 docs
-      try {
-        const signedRes = await fetch(
-          `${supabaseUrl}/storage/v1/object/sign/vendor-documents/${fp}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type':  'application/json',
-              'apikey':        serviceKey,
-              'Authorization': `Bearer ${serviceKey}`,
-            },
-            body: JSON.stringify({ expiresIn: 300 }),
-          }
-        )
-        const signedData = await signedRes.json()
-        if (!signedData.signedURL) continue
-
-        const url     = `${supabaseUrl}/storage/v1${signedData.signedURL}`
-        const fileRes = await fetch(url)
-        const ext     = fp.split('.').pop().toLowerCase()
-
-        if (ext === 'pdf') {
-          const buf    = await fileRes.arrayBuffer()
-          const base64 = Buffer.from(buf).toString('base64')
-          documentTexts.push({ type: 'pdf', base64, fileName: fp.split('/').pop() })
-        } else if (ext === 'docx' || ext === 'doc') {
-          const buf = await fileRes.arrayBuffer()
-          try {
-            const mammoth   = await import('mammoth')
-            const result    = await mammoth.extractRawText({ buffer: Buffer.from(buf) })
-            documentTexts.push({ type: 'text', text: result.value?.slice(0, 8000) || '', fileName: fp.split('/').pop() })
-          } catch { /* skip if mammoth fails */ }
-        } else if (ext === 'txt') {
-          const text = await fileRes.text()
-          documentTexts.push({ type: 'text', text: text.slice(0, 8000), fileName: fp.split('/').pop() })
-        }
-      } catch (err) {
-        console.error(`Error fetching doc ${fp}:`, err.message)
-      }
-    }
-  }
-
-  // ── Build Claude message content ─────────────────────────────────────────
-  const content = []
-
-  // Attach PDF documents as native blocks
-  for (const doc of documentTexts.filter(d => d.type === 'pdf')) {
-    content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } })
-  }
-
-  // Build the text prompt
-  const docTextSection = documentTexts
-    .filter(d => d.type === 'text')
-    .map(d => `--- Document: ${d.fileName} ---\n${d.text}`)
-    .join('\n\n')
-
   const researchSection = researchData
-    ? `\n\nWEB RESEARCH DATA:\nSummary: ${researchData.summary || ''}\nCertifications: ${(researchData.certifications || []).join(', ')}\nCompliance: ${(researchData.compliance || []).join(', ')}\nStrengths: ${(researchData.strengths || []).join('; ')}\nConcerns: ${(researchData.weaknesses || []).join('; ')}`
+    ? `\nWEB RESEARCH:\nSummary: ${researchData.summary || ''}\nCertifications: ${(researchData.certifications || []).join(', ')}\nCompliance: ${(researchData.compliance || []).join(', ')}`
     : ''
 
-  const prompt = `You are a third-party risk analyst completing a security scorecard for "${vendorName}" (${vendorWebsite || ''}).
+  // Sort: questionnaire first, then by doc type priority
+  const sortedPaths = [...filePaths].sort((a, b) => {
+    const ta = docTypes[filePaths.indexOf(a)] || 'other'
+    const tb = docTypes[filePaths.indexOf(b)] || 'other'
+    return DOC_TYPE_PRIORITY.indexOf(ta) - DOC_TYPE_PRIORITY.indexOf(tb)
+  })
 
-Use the provided documents and research data to answer each question. For each question:
-- If the answer is clearly evidenced, set "value" to "yes", "no", or the text value, and "confidence" to "high"
-- If it can be reasonably inferred, set "confidence" to "medium"  
-- If there is no evidence, set "value" to "unknown" and "confidence" to "unknown"
-- Always set "source" to a brief description of where you found the answer (e.g. "Security questionnaire p.3", "SOC2 report", "Web research", "Inferred from certification", "Not found in available documents")
-- For cloud_provider, return the provider name (AWS, Azure, GCP, etc.) or "N/A" if self-hosted, or "unknown"
+  console.log(`Scorecard "${vendorName}": ${sortedPaths.length} docs, sequential processing`)
 
-Return ONLY valid JSON — no markdown, no extra text:
-{
-  "mfa":              { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "sso":              { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "soc2_iso":         { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "cloud_provider":   { "value": "AWS|Azure|GCP|N/A|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "infosec_annual":   { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "security_team":    { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "pii":              { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "password_policy":  { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "gold_master":      { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "security_awareness": { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "staging_env":      { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "asset_inventory":  { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "library_inventory":{ "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "rbac":             { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "ir_testing":       { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "bcp":              { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." },
-  "outsource_dev":    { "value": "yes|no|unknown", "confidence": "high|medium|unknown", "source": "..." }
-}
+  let scorecard    = {}
+  let docsAnalyzed = 0
 
-${docTextSection ? `UPLOADED DOCUMENTS:\n${docTextSection}` : 'No documents uploaded.'}
-${researchSection}`
+  for (const fp of sortedPaths.slice(0, 4)) {
+    const unknownKeys = ALL_KEYS.filter(k => !scorecard[k] || scorecard[k].confidence === 'unknown')
+    if (unknownKeys.length === 0) { console.log('All answered — stopping early'); break }
 
-  content.push({ type: 'text', text: prompt })
+    console.log(`Doc: ${fp.split('/').pop()} — ${unknownKeys.length} unknown`)
 
-  // ── Call Claude ───────────────────────────────────────────────────────────
-  const hasPdf = documentTexts.some(d => d.type === 'pdf')
-  const headers = {
-    'Content-Type':      'application/json',
-    'x-api-key':         apiKey,
-    'anthropic-version': '2023-06-01',
-    ...(hasPdf ? { 'anthropic-beta': 'pdfs-2024-09-25' } : {}),
-  }
+    try {
+      const doc     = await fetchDoc(supabaseUrl, serviceKey, fp)
+      if (!doc) continue
 
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model:      'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages:   [{ role: 'user', content }],
-      }),
-    })
+      const content = buildContent(doc, vendorName, vendorWebsite, researchSection, unknownKeys)
+      const data    = await callClaude(apiKey, content, doc.type === 'pdf')
+      const text    = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
+      const match   = text.match(/\{[\s\S]*\}/)
 
-    const data = await response.json()
-    if (!response.ok) return res.status(500).json({ error: data.error?.message || 'API error' })
+      if (match) {
+        scorecard = mergeResults(scorecard, JSON.parse(match[0]))
+        docsAnalyzed++
+        const answered = ALL_KEYS.filter(k => scorecard[k]?.confidence !== 'unknown').length
+        console.log(`  Merged — ${answered}/${ALL_KEYS.length} answered`)
+      }
 
-    const text  = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
-    const match = text.match(/\{[\s\S]*\}/)
-    if (!match) return res.status(500).json({ error: 'Could not parse response' })
+      // 2s pause between docs to stay well under rate limits
+      if (sortedPaths.indexOf(fp) < sortedPaths.length - 1) await sleep(2000)
 
-    const scorecard = JSON.parse(match[0])
-    scorecard._generatedAt    = new Date().toISOString()
-    scorecard._docCount       = documentTexts.length
-    scorecard._hadResearch    = !!researchData
-
-    // Save to Supabase
-    if (vendorId && supabaseUrl && serviceKey) {
-      await fetch(`${supabaseUrl}/rest/v1/vendors?id=eq.${vendorId}`, {
-        method:  'PATCH',
-        headers: {
-          'Content-Type':  'application/json',
-          'apikey':        serviceKey,
-          'Authorization': `Bearer ${serviceKey}`,
-          'Prefer':        'return=minimal',
-        },
-        body: JSON.stringify({ scorecard }),
-      })
+    } catch (err) {
+      console.error(`Failed on ${fp}:`, err.message)
+      if (err.message.includes('rate limit') || err.message.includes('tokens per minute')) break
     }
-
-    return res.status(200).json(scorecard)
-  } catch (err) {
-    console.error('Scorecard error:', err.message)
-    return res.status(500).json({ error: err.message })
   }
+
+  // Research-only fallback if no docs were processed
+  if (docsAnalyzed === 0 && researchData) {
+    console.log('No docs — research-only pass')
+    try {
+      const content = buildContent(
+        { type: 'text', text: '', fileName: 'web research' },
+        vendorName, vendorWebsite, researchSection, ALL_KEYS
+      )
+      const data  = await callClaude(apiKey, content, false)
+      const text  = data.content.filter(b => b.type === 'text').map(b => b.text).join('')
+      const match = text.match(/\{[\s\S]*\}/)
+      if (match) scorecard = JSON.parse(match[0])
+    } catch (err) {
+      console.error('Research fallback failed:', err.message)
+    }
+  }
+
+  // Fill missing keys as unknown
+  for (const key of ALL_KEYS) {
+    if (!scorecard[key]) scorecard[key] = { value: 'unknown', confidence: 'unknown', source: 'Not analyzed' }
+  }
+
+  scorecard._generatedAt = new Date().toISOString()
+  scorecard._docCount    = docsAnalyzed
+  scorecard._hadResearch = !!researchData
+  scorecard._partial     = docsAnalyzed < sortedPaths.length
+
+  // Save to Supabase
+  if (vendorId && supabaseUrl && serviceKey) {
+    await fetch(`${supabaseUrl}/rest/v1/vendors?id=eq.${vendorId}`, {
+      method:  'PATCH',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+        'Prefer':        'return=minimal',
+      },
+      body: JSON.stringify({ scorecard }),
+    })
+  }
+
+  return res.status(200).json(scorecard)
 }

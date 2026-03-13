@@ -107,7 +107,7 @@ export function AuthProvider({ children }) {
   const signOut = () => supabase.auth.signOut()
 
   // Feature flags — persisted in localStorage
-  const [showDD,   setShowDD]   = useState(() => localStorage.getItem('feature_showDD') !== 'false')
+  const [showDD,   setShowDD]   = useState(() => localStorage.getItem('feature_showDD') === 'true')
   const toggleDD = (val) => { setShowDD(val); localStorage.setItem('feature_showDD', String(val)) }
 
   // The "current user" is the TPRM profile matched to auth email
