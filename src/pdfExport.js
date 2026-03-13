@@ -164,7 +164,6 @@ export async function exportVendorPDF(vendor, { showDD = true } = {}) {
 
   const details = [
     ['Contact',  vendor.contact  || '—'],
-    ['Country',  vendor.country  || '—'],
     ['Category', vendor.category || '—'],
     ['Tier',     vendor.tier     || '—'],
     ['Status',   vendor.status   || '—'],
@@ -516,6 +515,7 @@ export async function exportVendorPDF(vendor, { showDD = true } = {}) {
       { label: 'DPA',               value: appr.dpa,        show: appr.dpa && appr.dpa !== 'N/A' },
       { label: 'SSO',               value: appr.sso,        show: appr.sso && appr.sso !== 'N/A' },
       { label: 'SOC 2 Required',    value: 'Yes',           show: appr.soc2 },
+      { label: 'CDK 3PA Required',  value: 'Yes',           show: appr.cdk },
       { label: 'Password Hygiene',  value: 'Required',      show: appr.passwordHygiene },
       { label: 'URL Whitelist',     value: appr.whitelist,  show: appr.whitelist && appr.whitelist !== 'N/A' },
       { label: 'VLAN',              value: appr.vlan,       show: appr.vlan && appr.vlan !== 'N/A' },

@@ -115,6 +115,9 @@ export function SBadge({ status }) {
     Active:         { bg: t.successBg, c: t.successText, b: t.successText + '44' },
     'Under Review': { bg: t.warnBg,    c: t.warnText,    b: t.warnText + '44' },
     Onboarding:     { bg: '#f0f9ff',   c: '#0284c7',     b: '#bae6fd' },
+    Completed:      { bg: '#f3f0ff',   c: '#7c3aed',     b: '#c4b5fd' },
+    Suspended:      { bg: '#fff1f2',   c: '#be123c',     b: '#fecdd3' },
+    Offboarded:     { bg: t.surface2,  c: t.text3,       b: t.border  },
     inactive:       { bg: t.surface2,  c: t.text3,       b: t.border },
     active:         { bg: t.successBg, c: t.successText, b: t.successText + '44' },
   }

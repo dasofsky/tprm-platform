@@ -1,27 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '../context'
 import { useAuth } from '../context'
 import { Card, Btn, SBadge, ScorePill, SectionHeader, AlertRow } from './ui'
 import { BarChart, RadarChart, MiniLine } from './charts'
 import { riskColor, tierDot, alertStyle } from '../utils'
+import { supabase } from '../supabase'
 import { AssignedTo } from './AssignedTo'
 import { DD_ITEMS, RA_DIMS } from '../data'
 
 // All possible columns with labels
 const ALL_COLUMNS = [
-  { id: 'name',      label: 'Vendor',      always: true },
-  { id: 'category',  label: 'Category' },
-  { id: 'tier',      label: 'Tier' },
-  { id: 'status',    label: 'Status' },
-  { id: 'riskScore', label: 'Risk Score' },
-  ...(true ? [{ id: 'dd', label: 'DD Progress' }] : []),  // filtered by showDD below
-  { id: 'contact',   label: 'Contact' },
+  { id: 'name',         label: 'Vendor',        always: true },
+  { id: 'category',     label: 'Category' },
+  { id: 'tier',         label: 'Tier' },
+  { id: 'status',       label: 'Status' },
+  { id: 'riskScore',    label: 'Risk Score' },
+  { id: 'assessor',     label: 'Assessor' },
+  { id: 'docs',         label: 'Documents' },
+  { id: 'contact',      label: 'Contact' },
   { id: 'contactEmail', label: 'Contact Email' },
-  { id: 'jira',      label: 'Jira Ticket' },
-  { id: 'alerts',    label: 'Alerts' },
+  { id: 'jira',         label: 'Jira Ticket' },
+  { id: 'alerts',       label: 'Alerts' },
 ]
 
-const DEFAULT_COLS = ['name', 'category', 'tier', 'status', 'riskScore', 'dd']
+const DEFAULT_COLS = ['name', 'category', 'tier', 'status', 'riskScore', 'jira']
 
 // ─── COLUMN SELECTOR ──────────────────────────────────────────────────────────
 function ColumnSelector({ visible, onChange }) {
@@ -90,7 +92,26 @@ function VendorLogo({ vendor, size = 28 }) {
 export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
   const t = useTheme()
   const { canWrite, showDD } = useAuth()
-  const [visibleCols, setVisibleCols] = useState(DEFAULT_COLS)
+  const [visibleCols,   setVisibleCols]   = useState(DEFAULT_COLS)
+  const [docCounts,     setDocCounts]     = useState({})  // { vendorId: count }
+
+  useEffect(() => {
+    supabase
+      .from('documents')
+      .select('vendor_id')
+      .then(({ data }) => {
+        if (!data) return
+        const counts = {}
+        data.forEach(d => { counts[d.vendor_id] = (counts[d.vendor_id] || 0) + 1 })
+        setDocCounts(counts)
+      })
+  }, [])
+  const [searchQuery,   setSearchQuery]   = useState('')
+  const [filterStatus,  setFilterStatus]  = useState('all')
+  const [filterCat,     setFilterCat]     = useState('all')
+  const [filterTier,    setFilterTier]    = useState('all')
+  const [filterHasDocs,  setFilterHasDocs]  = useState(false)
+  const [filterAssessor, setFilterAssessor] = useState('all')
   const allAlerts = vendors.flatMap(v => (v.alerts || []).map(a => ({ ...a, vendor: v.name })))
   const counts = {
     total:  vendors.length,
@@ -98,6 +119,39 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
     high:   vendors.filter(v => v.riskScore < 50).length,
     crit:   allAlerts.filter(a => a.type === 'critical').length,
   }
+  // Derive unique values for filter dropdowns
+  const allStatuses  = [...new Set(vendors.map(v => v.status).filter(Boolean))]
+  const allCats      = [...new Set(vendors.map(v => v.category).filter(Boolean))]
+  const allTiers     = [...new Set(vendors.map(v => v.tier).filter(Boolean))]
+
+  // Apply search + filters
+  const filtered = vendors.filter(v => {
+    const q = searchQuery.toLowerCase().trim()
+    if (q && !v.name?.toLowerCase().includes(q) &&
+             !v.category?.toLowerCase().includes(q) &&
+             !v.contact?.toLowerCase().includes(q) &&
+             !v.contactEmail?.toLowerCase().includes(q) &&
+             !v.jiraTicket?.toLowerCase().includes(q)) return false
+    if (filterStatus !== 'all' && v.status !== filterStatus) return false
+    if (filterCat    !== 'all' && v.category !== filterCat)  return false
+    if (filterTier   !== 'all' && v.tier !== filterTier)     return false
+    if (filterHasDocs && !(docCounts[v.id] > 0))             return false
+    if (filterAssessor !== 'all' && v.assignedTo !== filterAssessor) return false
+    return true
+  })
+
+  const activeFilters = [
+    filterStatus !== 'all', filterCat !== 'all',
+    filterTier !== 'all', filterHasDocs, searchQuery.trim() !== '',
+    filterAssessor !== 'all'
+  ].filter(Boolean).length
+
+  const clearAll = () => {
+    setSearchQuery(''); setFilterStatus('all')
+    setFilterCat('all'); setFilterTier('all')
+    setFilterHasDocs(false); setFilterAssessor('all')
+  }
+
   const show = id => visibleCols.includes(id)
 
   return (
@@ -156,9 +210,80 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
 
       {/* Vendor table */}
       <Card style={{ overflow: 'hidden' }}>
-        <div style={{ padding: '13px 20px', borderBottom: `1px solid ${t.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>All Vendors <span style={{ fontSize: 11, color: t.text3, fontWeight: 400 }}>{vendors.length} total</span></span>
-          <ColumnSelector visible={visibleCols} onChange={setVisibleCols} />
+        {/* Search + Filter bar */}
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${t.border}` }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Search input */}
+            <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 180 }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: t.text3, fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search vendors..."
+                style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 7, paddingBottom: 7, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 12, color: t.text, background: t.inputBg, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: t.text3, fontSize: 12 }}>✕</button>
+              )}
+            </div>
+
+            {/* Status filter */}
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${filterStatus !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterStatus !== 'all' ? t.accentText : t.text2, background: filterStatus !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All Statuses</option>
+              {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* Category filter */}
+            <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${filterCat !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterCat !== 'all' ? t.accentText : t.text2, background: filterCat !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All Categories</option>
+              {allCats.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* Tier filter */}
+            <select value={filterTier} onChange={e => setFilterTier(e.target.value)}
+              style={{ padding: '7px 10px', border: `1px solid ${filterTier !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterTier !== 'all' ? t.accentText : t.text2, background: filterTier !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+              <option value="all">All Tiers</option>
+              {allTiers.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* Assessor filter */}
+            {vendors.some(v => v.assignedTo) && (
+              <select value={filterAssessor} onChange={e => setFilterAssessor(e.target.value)}
+                style={{ padding: '7px 10px', border: `1px solid ${filterAssessor !== 'all' ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, color: filterAssessor !== 'all' ? t.accentText : t.text2, background: filterAssessor !== 'all' ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}>
+                <option value="all">All Assessors</option>
+                {[...new Set(vendors.map(v => v.assignedTo).filter(Boolean))].sort().map(a => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Has documents toggle — uses real doc counts from documents table */}
+            <button onClick={() => setFilterHasDocs(p => !p)}
+              style={{ padding: '7px 12px', border: `1px solid ${filterHasDocs ? t.accent : t.border}`, borderRadius: 8, fontSize: 12, fontWeight: 600, color: filterHasDocs ? t.accentText : t.text2, background: filterHasDocs ? t.accentBg : t.inputBg, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              📎 Has Docs
+            </button>
+
+            {/* Clear filters */}
+            {activeFilters > 0 && (
+              <button onClick={clearAll}
+                style={{ padding: '7px 12px', border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 12, color: t.dangerText, background: t.dangerBg, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                ✕ Clear ({activeFilters})
+              </button>
+            )}
+
+            {/* Column selector + result count pushed right */}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: t.text3, whiteSpace: 'nowrap' }}>
+                {filtered.length === vendors.length
+                  ? <>{vendors.length} vendors</>
+                  : <><strong style={{ color: t.text }}>{filtered.length}</strong> of {vendors.length}</>
+                }
+              </span>
+              <ColumnSelector visible={visibleCols} onChange={setVisibleCols} />
+            </div>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -170,17 +295,22 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                 {show('tier')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Tier</th>}
                 {show('status')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Status</th>}
                 {show('riskScore') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Risk Score</th>}
-                {show('dd')        && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>DD Progress</th>}
                 {show('contact')   && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact</th>}
                 {show('contactEmail') && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Contact Email</th>}
                 {show('jira')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Jira</th>}
                 {show('assessor')  && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Assessor</th>}
+                {show('docs')      && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Documents</th>}
                 {show('alerts')    && <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.text3, letterSpacing: '.07em', textTransform: 'uppercase', borderBottom: `1px solid ${t.border}`, whiteSpace: 'nowrap' }}>Alerts</th>}
                 <th style={{ padding: '9px 14px', borderBottom: `1px solid ${t.border}` }} />
               </tr>
             </thead>
             <tbody>
-              {vendors.map((v, i) => {
+              {filtered.length === 0
+                ? <tr><td colSpan={20} style={{ padding: '40px 20px', textAlign: 'center', color: t.text3, fontSize: 13 }}>
+                    No vendors match your search.{' '}
+                    <button onClick={clearAll} style={{ color: t.accent, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Clear filters</button>
+                  </td></tr>
+                : filtered.map((v, i) => {
                 const ddP = Math.round(((v.ddCompleted?.length || 0) / DD_ITEMS.length) * 100)
                 const alertCount = v.alerts?.length || 0
                 return (
@@ -193,7 +323,15 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                         <VendorLogo vendor={v} size={28} />
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{v.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13, color: t.text }}>{v.name}</span>
+                            {docCounts[v.id] > 0 && (
+                              <span title={`${docCounts[v.id]} document${docCounts[v.id] > 1 ? 's' : ''} uploaded`}
+                                style={{ fontSize: 10, fontWeight: 700, color: t.accent, background: t.accentBg, border: `1px solid ${t.accent}33`, borderRadius: 999, padding: '0 5px', lineHeight: '16px' }}>
+                                📎 {docCounts[v.id]}
+                              </span>
+                            )}
+                          </div>
                           <a href={v.website} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: t.accent }}>{v.website}</a>
                         </div>
                       </div>
@@ -203,22 +341,14 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                     {show('tier')      && <td style={{ padding: '10px 14px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: t.text2 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: tierDot(v.tier), display: 'inline-block', flexShrink: 0 }} />{v.tier}</span></td>}
                     {show('status')    && <td style={{ padding: '10px 14px' }}><SBadge status={v.status} /></td>}
                     {show('riskScore') && <td style={{ padding: '10px 14px' }}><ScorePill score={v.riskScore} /></td>}
-                    {show('dd')        && (
-                      <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 60, background: t.border, borderRadius: 999, height: 5 }}>
-                            <div style={{ width: `${ddP}%`, background: ddP === 100 ? '#16a34a' : ddP > 50 ? '#d97706' : '#dc2626', height: 5, borderRadius: 999 }} />
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: t.text2 }}>{ddP}%</span>
-                        </div>
-                      </td>
-                    )}
                     {show('contact')   && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.contact || '—'}</td>}
                     {show('contactEmail') && <td style={{ padding: '10px 14px', fontSize: 12, color: t.text2 }}>{v.contactEmail ? <a href={`mailto:${v.contactEmail}`} style={{ color: '#6366f1' }}>{v.contactEmail}</a> : '—'}</td>}
                     {show('jira')      && (
                       <td style={{ padding: '10px 14px' }}>
                         {v.jiraTicket
-                          ? <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4 }}>{v.jiraTicket}</span>
+                          ? <span style={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4 }}>
+                              {/^NPW-/i.test(v.jiraTicket) ? v.jiraTicket : `NPW-${v.jiraTicket}`}
+                            </span>
                           : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
                       </td>
                     )}
@@ -226,6 +356,13 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                       <td style={{ padding: '10px 14px' }}>
                         {v.assignedTo
                           ? <span style={{ fontSize: 11, fontWeight: 600, color: t.text }}>{v.assignedTo.split(' ')[0]}</span>
+                          : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
+                      </td>
+                    )}
+                    {show('docs') && (
+                      <td style={{ padding: '10px 14px' }}>
+                        {(docCounts[v.id] || 0) > 0
+                          ? <span style={{ fontSize: 11, fontWeight: 600, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: 4 }}>✓ {docCounts[v.id]}</span>
                           : <span style={{ fontSize: 11, color: t.text3 }}>—</span>}
                       </td>
                     )}
@@ -242,6 +379,7 @@ export function OverviewTab({ vendors, onSelect, onAdd, onBulkImport }) {
                   </tr>
                 )
               })}
+              }
             </tbody>
           </table>
         </div>

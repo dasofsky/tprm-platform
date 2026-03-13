@@ -110,7 +110,7 @@ function DeleteConfirm({ user, onClose, onConfirm }) {
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
 export function SettingsPage() {
   const t = useTheme()
-  const { users, currentUser, isAdmin, addUser, updateUser, deleteUser } = useAuth()
+  const { users, currentUser, isAdmin, addUser, updateUser, deleteUser, showDD, toggleDD } = useAuth()
   const [stab, setStab]   = useState(isAdmin ? 'users' : 'appearance')
   const [modal, setModal] = useState(null)
   const [delUser, setDelUser] = useState(null)

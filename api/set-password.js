@@ -11,37 +11,76 @@ export default async function handler(req, res) {
   const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return res.status(500).json({ error: 'SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in Vercel environment variables' })
+    return res.status(500).json({ error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_KEY env vars' })
+  }
+
+  const adminHeaders = {
+    'Content-Type':  'application/json',
+    'apikey':        SERVICE_KEY,
+    'Authorization': `Bearer ${SERVICE_KEY}`,
   }
 
   try {
-    // 1. Look up the user by email using the admin API
-    const listRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
-      headers: {
-        'apikey':        SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-      }
+    // ── Strategy: try to create first (idempotent approach)
+    // If the user already exists, creation returns a 422 with "already exists" — 
+    // then we fall through to update by fetching their ID.
+
+    const createRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+      method:  'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true,
+      }),
     })
-    const listData = await listRes.json()
-    const user = listData.users?.[0]
+    const createData = await createRes.json()
 
-    if (!user) return res.status(404).json({ error: `No auth account found for ${email}. The user needs to be invited first.` })
+    // Created successfully
+    if (createRes.ok) {
+      return res.status(200).json({ success: true, email, action: 'created' })
+    }
 
-    // 2. Update their password using the admin API
-    const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type':  'application/json',
-        'apikey':        SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-      },
-      body: JSON.stringify({ password })
+    // User already exists — find them and update password instead
+    const errMsg = (createData.msg || createData.message || createData.error_description || '').toLowerCase()
+    const alreadyExists = createRes.status === 422 || errMsg.includes('already') || errMsg.includes('exists')
+
+    if (!alreadyExists) {
+      // A real error during creation
+      throw new Error(createData.msg || createData.message || `Create failed with status ${createRes.status}`)
+    }
+
+    // Fetch all users (paginated) to find by email
+    let found = null
+    let page  = 1
+    while (!found) {
+      const listRes = await fetch(
+        `${SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=1000`,
+        { headers: adminHeaders }
+      )
+      const listData = await listRes.json()
+      const users    = listData.users || []
+      if (users.length === 0) break
+      found = users.find(u => u.email?.toLowerCase() === email.toLowerCase())
+      if (found || users.length < 1000) break
+      page++
+    }
+
+    if (!found) {
+      return res.status(404).json({ error: `Could not locate auth account for ${email}` })
+    }
+
+    // Update the password
+    const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${found.id}`, {
+      method:  'PUT',
+      headers: adminHeaders,
+      body:    JSON.stringify({ password }),
     })
-
     const updateData = await updateRes.json()
-    if (!updateRes.ok) throw new Error(updateData.message || 'Failed to update password')
+    if (!updateRes.ok) throw new Error(updateData.msg || updateData.message || `Update failed with status ${updateRes.status}`)
 
-    return res.status(200).json({ success: true, email })
+    return res.status(200).json({ success: true, email, action: 'updated' })
+
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
