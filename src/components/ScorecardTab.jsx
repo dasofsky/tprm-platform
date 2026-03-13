@@ -87,12 +87,21 @@ export function ScorecardTab({ vendor, onUpdate }) {
     setLoading(true)
     try {
       // Fetch document file paths for this vendor
-      const { data: docs } = await supabase
+      const { data: docs, error: docsError } = await supabase
         .from('documents')
-        .select('file_path, file_name')
+        .select('file_path, name, doc_type')
         .eq('vendor_id', vendor.id)
 
-      const filePaths = (docs || []).map(d => d.file_path).filter(Boolean)
+      if (docsError) console.error('Failed to fetch documents for scorecard:', docsError.message)
+
+      // Sort so questionnaires come first — they have the most answers
+      const sorted = (docs || []).sort((a, b) => {
+        if (a.doc_type === 'questionnaire') return -1
+        if (b.doc_type === 'questionnaire') return 1
+        return 0
+      })
+      const filePaths = sorted.map(d => d.file_path).filter(Boolean)
+      console.log(`Scorecard: sending ${filePaths.length} document(s) for ${vendor.name}`, filePaths.map(f => f.split('/').pop()))
 
       const res = await fetch('/api/scorecard', {
         method: 'POST',
