@@ -62,6 +62,7 @@ function mapVendorFromDB(row) {
     assignedTo:  row.assigned_to,
     approval:    row.approval    || {},
     scoreReasons: row.score_reasons || {},
+    scorecard:   row.scorecard   || null,
   }
 }
 
@@ -88,6 +89,7 @@ function mapVendorToDB(v) {
   if (v.assignedTo  !== undefined) out.assigned_to  = v.assignedTo
   if (v.approval     !== undefined) out.approval      = v.approval
   if (v.scoreReasons !== undefined) out.score_reasons = v.scoreReasons
+  if (v.scorecard    !== undefined) out.scorecard     = v.scorecard
   out.updated_at = new Date().toISOString()
   return out
 }
