@@ -166,7 +166,7 @@ export function ScorecardTab({ vendor, onUpdate }) {
       </div>
 
       {/* Partial results warning */}
-      {sc._partial && (
+      {sc?._partial && (
         <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8,
           background: '#fffbeb', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 15 }}>⚠️</span>
