@@ -6,7 +6,7 @@ import { supabase } from '../supabase'
 const STATUSES   = ['N/A', 'Approved', 'Approved with Conditions', 'Approved with Recommendations', 'Denied']
 const MFA_OPTS   = ['N/A', 'Required', 'Suggested']
 const WHITELIST  = ['N/A', 'Approved', 'Approved Except']
-const VLANS      = ['N/A', 'VLAN 203', 'VLAN 204', 'VLAN 206', 'VLAN 204 with PSK 100', 'VLAN 350']
+const VLANS      = ['N/A', 'VLAN203 - A/V', 'VLAN 204 - Low Security - Diagnostic', 'VLAN 204 with PSK_150 - Low Security with Wireless', 'VLAN 206 - PCI', 'VLAN 250 - Cameras/Facilities']
 const DPA_OPTS   = ['N/A', 'Required', 'Suggested']
 const SSO_OPTS   = ['N/A', 'Required', 'Suggested']
 
@@ -132,7 +132,7 @@ function generateText(fields, vendorName, jiraTicket) {
   if (fields.vlan !== 'N/A') {
     lines.push('*Network Configuration*')
     lines.push(`The device or solution should be configured on ${fields.vlan}. Please coordinate with the Network team to ensure the correct VLAN assignment is applied prior to deployment.`)
-    if (fields.vlan === 'VLAN 203') {
+    if (fields.vlan === 'VLAN203 - A/V') {
       lines.push('Please be aware that all content displayed on devices connected to VLAN 203 must meet the guidelines set forth in Sonic\'s AV Content Policy, as issued by the Legal department to all General Managers. Ensure that content is reviewed and approved before going live.')
     }
     lines.push('')
@@ -382,7 +382,7 @@ Based on the vendor's profile and risk posture, suggest 2-3 concise, specific ad
           {/* 5. VLAN */}
           <Field label="8. Network / VLAN Assignment">
             <Select value={fields.vlan} onChange={v => set('vlan', v)} options={VLANS} />
-            {fields.vlan === 'VLAN 203' && (
+            {fields.vlan === 'VLAN203 - A/V' && (
               <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: t.warnBg, border: `1px solid ${t.warnText}44`, fontSize: 11, color: t.warnText }}>
                 ⚠️ AV content guidelines apply — reminder will be included in the post
               </div>
